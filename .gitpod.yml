@@ -1,0 +1,9 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: leanpkg configure
+
+vscode:
+  extensions:
+    - leanprover.lean4
