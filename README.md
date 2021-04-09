@@ -9,7 +9,6 @@ You can run Gitpod workspaces for free for 50 hours per month, which should be m
 ### Gitpod
 
 1. Register at https://gitpod.io/login/
-1. Set the editor to "Code" at the end of https://gitpod.io/settings/ under "Feature Preview" ![Gitpod editor config](images/gitpod-code.png)
 1. Go to https://gitpod.io/#/https://github.com/IPDSnelting/tba-2021/ to spawn a new workspace based on this repository.
 Whenever you click on that link again, you should get a fresh copy of the newest commit of the repository.
 Go to https://gitpod.io/workspaces/ instead to continue working on an existing workspace with your changes.
