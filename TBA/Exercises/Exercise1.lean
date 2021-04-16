@@ -65,7 +65,6 @@ example : ¬(p ↔ ¬p) := _
 
 example : ¬¬(¬¬p → p) := _
 
-
 /- CLASSICAL AXIOMS -/
 
 -- Some tautologies about negation cannot be proven by just assuming the logical
