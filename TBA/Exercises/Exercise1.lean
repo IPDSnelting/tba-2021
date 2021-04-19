@@ -22,7 +22,7 @@ example : p → (p → q) → p ∧ q := _
 
 theorem imp_and : (p → q ∧ r) → (p → q) ∧ (p → r) := _
 
--- Matching on `And.intro` can quickly become tedious, so you can use the following helper functions from now on.
+-- Matching on `And.intro` can quickly become tedious, so you can use the following helper functions from now on:
 #check And.left
 #check And.right
 
@@ -64,6 +64,7 @@ theorem not_or_not : (¬p ∨ ¬q) → ¬(p ∧ q) := _
 example : ¬(p ↔ ¬p) := _
 
 example : ¬¬(¬¬p → p) := _
+
 
 /- CLASSICAL AXIOMS -/
 

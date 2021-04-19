@@ -37,7 +37,7 @@ theorem imp_and : (p → q ∧ r) → (p → q) ∧ (p → r) :=
   fun h => ⟨fun hp => match h hp with | And.intro hq hr => hq,
             fun hp => match h hp with | And.intro hq hr => hr⟩
 
--- Matching on `And.intro` can quickly become tedious, so you can use the following helper functions from now on.
+-- Matching on `And.intro` can quickly become tedious, so you can use the following helper functions from now on:
 #check And.left
 #check And.right
 
@@ -114,6 +114,7 @@ example : ¬¬(¬¬p → p) :=
   fun nnnpp => nnnpp fun nnp => False.elim (nnp (fun hp => nnnpp fun _ => hp))
 -- Using `False.elim` instead of `nomatch` makes for better output during the construction of the proof.
 -- We have updated the slides to reflect this.
+
 
 /- CLASSICAL AXIOMS -/
 
