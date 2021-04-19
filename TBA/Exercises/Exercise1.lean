@@ -25,7 +25,6 @@ theorem imp_and : (p → q ∧ r) → (p → q) ∧ (p → r) := _
 -- Matching on `And.intro` can quickly become tedious, so you can use the following helper functions from now on.
 #check And.left
 #check And.right
--- If `h : p ∧ q`, we can also write `h.left` as a shorthand for `And.left h`.
 
 /- BIIMPLICATION -/
 
