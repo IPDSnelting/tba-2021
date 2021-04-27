@@ -48,6 +48,9 @@ theorem le_add (m n : Nat') : m ≤ add m n :=
     show m ≤ succ (add m n) from
     _
 
+-- Now try proving this theorem on `add` using the same induction scheme
+theorem zero_add (n : Nat') : add zero n = add n zero := _
+
 /-
 LISTS
 
