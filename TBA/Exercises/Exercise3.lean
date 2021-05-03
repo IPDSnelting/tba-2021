@@ -18,20 +18,20 @@ def add (m n : Nat') : Nat' :=
 def mul (m n : Nat') : Nat' := _
 
 -- Let's define `≤` as an inductive predicate on `Nat'`s!
-inductive LE : Nat' → Nat' → Prop where
-  | refl (n : Nat') : LE n n
+inductive LE' : Nat' → Nat' → Prop where
+  | refl (n : Nat') : LE' n n
   -- TODO: We're off to a good start since `≤` is certainly reflexive, but something is still
   -- missing (or else we'd just redefine `Eq` for `Nat'`s). Can you think of one more constructor
-  -- that makes it so `LE n m` holds whenever we would intuitively expect `n ≤ m` to hold?
-  -- hint: it remains to be shown that `LE n m` should hold when `m` is *greater* than `n`, so
+  -- that makes it so `LE' n m` holds whenever we would intuitively expect `n ≤ m` to hold?
+  -- hint: it remains to be shown that `LE' n m` should hold when `m` is *greater* than `n`, so
   -- the new constructor should probably involve `Nat'`'s `succ` constructor to reach those greater numbers.
-  -- hint: it should be an *inductive* case, meaning using another `LE` application as an assumption
-  -- note: `LE` could also be defined in terms of `add`, but that makes working with it awkward,
+  -- hint: it should be an *inductive* case, meaning using another `LE'` application as an assumption
+  -- note: `LE'` could also be defined in terms of `add`, but that makes working with it awkward,
   -- so let's not do that.
   | _
 
--- Now let's prove some things about `LE`. But first we'll give it the standard notation.
-infix:50 " ≤ " => LE
+-- Now let's prove some things about `LE'`. But first we'll give it the standard notation.
+infix:50 " ≤ " => LE'
 
 example (n : Nat') : n ≤ succ (succ n) := _
 
