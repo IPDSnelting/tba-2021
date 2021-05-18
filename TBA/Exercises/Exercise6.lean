@@ -88,7 +88,7 @@ scoped notation:max m "[" k " ↦ " v "]" => update m k v
 
 theorem apply_update [DecidableEq α] (m : Map α β) : m[k ↦ v] k = v := by
 
--- hint: use function extensionality
+-- hint: use function extensionality (`apply funext`)
 theorem update_self [DecidableEq α] (m : Map α β) : m[k ↦ m k] = m := by
 
 end Map
