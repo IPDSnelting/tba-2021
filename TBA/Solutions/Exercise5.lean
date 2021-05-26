@@ -166,7 +166,7 @@ theorem mem_filter : a ∈ filter p as ↔ a ∈ as ∧ p a := by
         rw [filter_cons_true h.2]
         constructor
       | tail ha =>
-        have a ∈ filter p as from ih ⟨ha, h.2⟩
+        have : a ∈ filter p as := ih ⟨ha, h.2⟩
         byCases hpa' : p a'
         case inl =>
           rw [filter_cons_true hpa']
