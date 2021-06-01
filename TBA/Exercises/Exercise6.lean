@@ -186,3 +186,4 @@ theorem sorted_insertionSort (as : List α) : Sorted (insertionSort as) := _
 
 -- Here's a "soft" question: Have we now fully verified that `insertionSort` is a sorting algorithm?
 -- What other property would be an obvious one to verify?
+
