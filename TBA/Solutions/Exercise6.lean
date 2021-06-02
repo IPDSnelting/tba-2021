@@ -131,7 +131,7 @@ local notation:max m "[" k " ↦ " v "]" => update m k v
 theorem apply_update [DecidableEq α] (m : DepMap α β) : m[k ↦ v] k = v := by simp [update]
 
 -- ...but this one is where the fun starts: try replicating the corresponding `Map` proof...
-theorem update_self [DecidableEq α] (m : Map α β) : m[k ↦ m k] = m := by
+theorem update_self [DecidableEq α] (m : DepMap α β) : m[k ↦ m k] = m := by
   funext k'
   byCases h : k = k'
   case inl =>

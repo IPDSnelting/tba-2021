@@ -113,7 +113,7 @@ local notation:max m "[" k " ↦ " v "]" => update m k v
 theorem apply_update [DecidableEq α] (m : DepMap α β) : m[k ↦ v] k = v := by
 
 -- ...but this one is where the fun starts: try replicating the corresponding `Map` proof...
-theorem update_self [DecidableEq α] (m : Map α β) : m[k ↦ m k] = m := by
+theorem update_self [DecidableEq α] (m : DepMap α β) : m[k ↦ m k] = m := by
 -- and you should end up with an unsolved goal containing a subterm of the shape `(_ : a = b) ▸ c`. This
 -- is the rewrite from `update`; the proof is elided as `_` by default because, as we said in week 1, Lean
 -- considers all proofs of a proposition as equal, so we really don't care what proof is displayed there.
