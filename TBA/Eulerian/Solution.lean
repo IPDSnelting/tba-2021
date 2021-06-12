@@ -6,6 +6,9 @@ lists being sublists of their permutation
 -/
 import TBA.Eulerian.List
 
+-- If a simp has to be turned to a simp only. :D
+--set_option trace.Meta.Tactic.simp true 
+
 open List
 
 namespace Eulerian
@@ -15,17 +18,201 @@ variable {α : Type} (E : List (α × α)) [DecidableEq α]
 
 def isNonEmpty : Prop := E.length > 0
 
+instance : Decidable (isNonEmpty E) := inferInstanceAs (Decidable (E.length > 0))
+
 -- Now it's your turn to fill out the following definitions and prove the characterization!
-def isStronglyConnected (E : List (α × α)) : Prop := _
 
-def hasEqualInOutDegrees (E : List (α × α)) : Prop := _
+def path (E : List (α × α)) : Prop := match E with
+  | [] => True
+  | cons (a,b) [] => True 
+  | cons (a,b) (cons (c,d) E) => if b = c then path (cons (c,d) E) else False
 
-def isEulerian (E : List (α × α)) : Prop := _
+def first (E : List (α × α)) : (h : isNonEmpty E) → α := by
+  intro h 
+  cases E with 
+    | nil => simp [isNonEmpty] at h
+    | cons e E => exact e.1
+
+theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
+  cases E with 
+    | nil => cases h
+    | cons _ E' => 
+      simp only [List.length_cons, Nat.succSubOne]
+      show length E' + 1 ≤ Nat.succ (length E') 
+      rw [Nat.add_succ, Nat.add_zero]
+      apply Nat.leRefl
+
+def last (E : List (α × α)) : (h : isNonEmpty E) → α := by 
+  intro h
+  let h' := lastIndexValid E h 
+  exact (E.get (E.length - 1) h').2 
+
+def circuit (E : List (α × α)) : Prop := 
+  if h : isNonEmpty E
+  then path E ∧ first E h = last E h 
+  else True -- Debatable if it should return True. For our purposes probably better.
+
+def reachable (E : List (α × α)) (a b : α) : Prop := 
+if a = b 
+then True 
+else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
+
+def bridge (E : List (α × α)) (a : (α × α)) : Prop := ¬ reachable (E.erase a) a.1 a.2
+
+def isWeaklyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b ∨ reachable E b a 
+
+def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
+
+def inDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun (x,y) => y = a).length
+
+def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun (x,y) => x = a).length
+
+def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
+
+def isEulerian (E : List (α × α)) : Prop := 
+if h : isNonEmpty E then ∃ E' : List (α × α), E' ≃ E ∧ circuit E' else True 
+
+def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
+  if n = 0
+  then e :: E
+  else match E with 
+    | [] => [e]
+    | cons e' E' => e' :: insert E' e (n-1)
+
+-- theorem insert_index (E : List (α × α)) (e : α × α) (n : Nat) (h : n < E.length) : (insert E e n).get n h = e := by 
+
+/-
+theorem insert_length (E : List (α × α)) (e : α × α) (n : Nat) : (insert E e n).length = E.length + 1 := by
+  induction E with 
+    | nil => 
+      show length (insert [] e n) = 1
+      byCases h : n = 0 
+      simp [h, insert]
+      
+      case inl => 
+        rw [h]
+        have h' : insert nil e 0 = [e] := by
+          apply insert 
+-/
+
+def insertEdgeAtStart (E : List (α × α)) (a b : α) : List (α × α) :=
+  (a, b) :: E
+
+def connectEnds (E : List (α × α)) (h : isNonEmpty E) : List (α × α) :=
+  insertEdgeAtStart E (last E h) (first E h)
+
+def removeFirst (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
+  E.erase (E.get 0 h)
+
+def removeLast (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
+  E.erase (E.get (E.length - 1) (lastIndexValid E h))
+
+theorem removeLength (E: List (α × α)) (h : isNonEmpty E) : (removeLast E h).length = E.length - 1 := by 
+  induction E with 
+  | nil => cases h 
+  | cons e E ih => 
+    _
+
+  -- hier ist wahrscheinlich length_erase_mem hilfreich...
+
+theorem removeLastLengthTwoNonEmpty (E : List (α × α)) (h : E.length ≥ 2) : isNonEmpty (removeLast E (lengthTwoNonEmpty E h)) := by
+  _
+  
+theorem lengthTwoNonEmpty (E : List (α × α)) (h : E.length ≥ 2) : isNonEmpty E := by
+  let h' := Nat.succPos 1
+  exact Nat.ltOfLtOfLe h' h  
+    
+def SkipFirst (E : List (α × α)) (h : E.length ≥ 2) : List (α × α) := 
+  let a := last E h
+  let b := first E h
+  insertEdgeAtStart (removeFirst (removeLast E (lengthTwoNonEmpty E h)) (removeLastLengthTwoNonEmpty E h)) a b 
+
+theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by
+  simp [circuit] at h
+  simp only [hasEqualInOutDegrees]
+  intro a
+  byCases h' : isNonEmpty E
+  case inl => 
+    have hp : path E := by 
+      apply h h'
+    have hfeql : first E = last E := by 
+      apply h h'
+    -- hier brauchen wir wahrscheinlich noch ein paar Lemmata, ich komme direkt sonst auf nichts..
+  case inr => 
+    have hin: inDegree E a = 0 := by
+      _
+    have hout: outDegree E a = 0 := by
+      _
+
+def heads (E : List (α × α)) : List α := map (fun e => e.2) E 
+
+def tails (E : List (α × α)) : List α := map (fun e => e.1) E 
+
+def breakAt (E : List (α × α)) (h : circuit E) (a : α) (h' : a ∈ heads E) : α := _
+  
+theorem circuitRotate (E as bs : List (α × α)) (h : circuit E) : E = as++bs → circuit (bs++as) := _
+
+theorem circHeadIffTail (E : List (α × α)) (h : circuit E) (e : α) : e ∈ heads E ↔ e ∈ tails E := by 
+constructor 
+  focus 
+  induction E with 
+  | nil => 
+    simp [map, heads, tails] 
+    intro h' 
+    exact h' 
+  | cons e' E' ih =>  
+    simp [cons] 
+
+theorem circuitRotate (E : List (α × α)) (h : circuit E) (e : α) : 
+e ∈ (map (fun (x,y) => x) E) → ∃ E' : List (α × α), ∃ h' : isNonEmpty E', E' ≃ E ∧ e = first E' h'
+:= _
+
+theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
+  {c : ∀ n, (∀ m, m < n → C m) → C n} : C n := by 
+  suffices ∀ l, (∀ m, m < l → C m) by
+    have h : n < Nat.succ n := by 
+      show Nat.succ n ≤ Nat.succ n 
+      apply Nat.leRefl 
+    exact this (Nat.succ n) n h 
+  intro l
+  induction l with 
+  | zero => 
+    intros m hle 
+    let h := (Nat.zeroLtIffSub.mp) hle
+    rw [Nat.zeroSub] at h 
+    cases h
+  | succ l ih => 
+    intros m h 
+    let h := Nat.leOfLtSucc h 
+    match decEq m l with 
+    | isTrue h' => 
+      rw [h'] 
+      exact c l ih 
+    | isFalse h' => 
+      let h' : m ≠ l := by simp [h'] 
+      let h := Nat.ltOfLeAndNe h h' 
+      exact ih m h
 
 theorem eulerian_degrees
   (hne : isNonEmpty E)
   (sc : isStronglyConnected E)
   (ed : hasEqualInOutDegrees E)
-  : isEulerian E := _
+  : isEulerian E := by 
+  induction E.length using Nat.strongRecOn with 
+  | _
+  
+  -- show ∀ n : Nat, ∀ E : List (α × α), E.length = n → isEulerian E
+  /-
+  induction E.length with 
+  | zero => _
+  | succ n ih => _
+  -/
+  
+  /-
+  induction ∀ m : Nat, m ≤ E.length with 
+  | zero => _
+  | succ n => _
+  -/
+  
 
 end Eulerian
