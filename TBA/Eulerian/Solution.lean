@@ -52,6 +52,14 @@ def circuit (E : List (α × α)) : Prop :=
   then path E ∧ first E h = last E h 
   else True -- Debatable if it should return True. For our purposes probably better.
 
+-- inverted edge
+def inverse (e : α × α) : α × α := (e.2, e.1)
+
+-- returns graph with undirected edges, i.e. for (a,b) (b,a) is inserted.
+def undirected (E : List (α × α)) : List (α × α) := match E with 
+  | [] => []
+  | e::E => e::(inverse e)::(undirected E)
+
 def reachable (E : List (α × α)) (a b : α) : Prop := 
 if a = b 
 then True 
@@ -59,7 +67,7 @@ else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first
 
 def bridge (E : List (α × α)) (a : (α × α)) : Prop := ¬ reachable (E.erase a) a.1 a.2
 
-def isWeaklyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b ∨ reachable E b a 
+def isWeaklyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable (undirected E) a b
 
 def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
 
@@ -69,8 +77,14 @@ def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun (x,y) => x
 
 def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
 
-def isEulerian (E : List (α × α)) : Prop := 
-if h : isNonEmpty E then ∃ E' : List (α × α), E' ≃ E ∧ circuit E' else True 
+-- Def. for "C is maximal in E under property p".
+def maximal (E C : List (α × α)) (p : List (α × α) → Prop): Prop := C ⊆ E ∧ p C ∧ ∀ C' : List (α × α), C' ⊆ E → C ⊆ C' → C ≠ C' → ¬(p C')
+
+def weakComponent (E C : List (α × α)) : Prop := maximal E C (isWeaklyConnected)
+
+def strongComponent (E C : List (α × α)) : Prop := maximal E C (isStronglyConnected)
+
+def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), E' ≃ E ∧ circuit E'
 
 def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
   if n = 0
@@ -78,6 +92,67 @@ def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) :=
   else match E with 
     | [] => [e]
     | cons e' E' => e' :: insert E' e (n-1)
+
+-- Returns longest prefix of elements that satisfy p.
+def takeWhile (p : α → Bool) : List α → List α 
+| [] => []
+| a::l => match p a with 
+  | true => a::(takeWhile p l)
+  | false => []
+
+-- sanity check
+#eval takeWhile (fun a => a < 3) [1,2,3,5,8]  
+
+-- Given path from a to b, returns path without edge (b,a).
+def pathNonRedundant (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : List (α × α) :=   
+  let e := (last P hpne, first P hpne)
+  takeWhile (fun e' => e ≠ e') P 
+
+-- somewhat sanity check
+#eval takeWhile (fun e' => (1,2) ≠ e') [(2,3), (3,4), (4,1), (1,2), (2,1)]
+
+theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ hpq hp  
+
+theorem pathNRNonEmpty (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : 
+isNonEmpty $ pathNonRedundant P hp hpne hne := by 
+  match P with 
+  | nil => cases hpne 
+  | cons e' P' => 
+    have h : first (e' :: P') hpne = e'.1 := by simp [first] 
+    have h' : e' = (e'.1, e'.2) := by simp [Prod] 
+
+
+    /-have h' : (last (e' :: P') hpne, first (e' :: P') hpne) ≠ e' := by 
+      suffices last (e' :: P') hpne ≠ e'.1 by 
+        intro h 
+    -/
+    
+
+
+/-
+theorem pathNRNonEmpty (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : 
+  isNonEmpty $ pathNonRedundant P hp hpne hne := by 
+  let Q := pathNonRedundant P hp hpne hne
+  show isNonEmpty Q
+  byCases h : isNonEmpty Q 
+  case inl => exact h
+  case inr => 
+    byCases h' : Q.length = 0 
+    case inr => 
+      let h' : isNonEmpty Q := by 
+        simp [h']
+         have h'' : Q = [] := length_zero_iff_nil.mpr h' 
+    case inl => 
+-/    
+
+  --match P with 
+  --| [] => 
+/-
+theorem pathWithoutCycle (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) : 
+first P hpne ≠ last P hpne → ∃ Q : List (α × α), ∃ hqne : isNonEmpty Q, path Q ∧ first P hpne = first Q hqne ∧ last P hpne = last Q hqne := by 
+  intro hne 
+-/
+
 
 -- theorem insert_index (E : List (α × α)) (e : α × α) (n : Nat) (h : n < E.length) : (insert E e n).get n h = e := by 
 
@@ -144,8 +219,10 @@ theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutD
     have hout: outDegree E a = 0 := by
       _
 
+-- List of head ends of edges.
 def heads (E : List (α × α)) : List α := map (fun e => e.2) E 
 
+-- List of tail ends of edges.
 def tails (E : List (α × α)) : List α := map (fun e => e.1) E 
 
 def breakAt (E : List (α × α)) (h : circuit E) (a : α) (h' : a ∈ heads E) : α := _
@@ -199,7 +276,7 @@ theorem eulerian_degrees
   (ed : hasEqualInOutDegrees E)
   : isEulerian E := by 
   induction E.length using Nat.strongRecOn with 
-  | _
+  | _ => _ 
   
   -- show ∀ n : Nat, ∀ E : List (α × α), E.length = n → isEulerian E
   /-
