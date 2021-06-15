@@ -61,9 +61,9 @@ def undirected (E : List (α × α)) : List (α × α) := match E with
   | e::E => e::(inverse e)::(undirected E)
 
 def reachable (E : List (α × α)) (a b : α) : Prop := 
-if a = b 
-then True 
-else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
+  if a = b 
+  then True 
+  else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
 
 def bridge (E : List (α × α)) (a : (α × α)) : Prop := ¬ reachable (E.erase a) a.1 a.2
 
@@ -71,9 +71,9 @@ def isWeaklyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable (u
 
 def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
 
-def inDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun (x,y) => y = a).length
+def inDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.2 = a).length
 
-def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun (x,y) => x = a).length
+def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.1 = a).length
 
 def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
 
@@ -86,12 +86,25 @@ def strongComponent (E C : List (α × α)) : Prop := maximal E C (isStronglyCon
 
 def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), E' ≃ E ∧ circuit E'
 
+def preList (E E' : List (α × α)) : Prop := ∃ E'' : List (α × α), E = E' ++ E'' 
+
+theorem prePath (E E' : List (α × α)) : preList E E' → path E → path E' := by 
+  induction E with 
+  | nil => 
+    intro h h' 
+    have h'' : E' = [] := _    
+  | cons e E' ih => 
+    intro h h' 
+    _ 
+    
 def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
   if n = 0
   then e :: E
   else match E with 
     | [] => [e]
     | cons e' E' => e' :: insert E' e (n-1)
+
+#eval insert [(1,2),(2,3)] (5,4) 1
 
 -- Returns longest prefix of elements that satisfy p.
 def takeWhile (p : α → Bool) : List α → List α 
@@ -103,7 +116,7 @@ def takeWhile (p : α → Bool) : List α → List α
 -- sanity check
 #eval takeWhile (fun a => a < 3) [1,2,3,5,8]  
 
--- Given path from a to b, returns path without edge (b,a).
+-- Given path from a to b, returns path without edge (b,a). 
 def pathNonRedundant (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : List (α × α) :=   
   let e := (last P hpne, first P hpne)
   takeWhile (fun e' => e ≠ e') P 
@@ -112,6 +125,7 @@ def pathNonRedundant (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (
 #eval takeWhile (fun e' => (1,2) ≠ e') [(2,3), (3,4), (4,1), (1,2), (2,1)]
 
 theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ hpq hp  
+
 
 theorem pathNRNonEmpty (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : 
 isNonEmpty $ pathNonRedundant P hp hpne hne := by 
