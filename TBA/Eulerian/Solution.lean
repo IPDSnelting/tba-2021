@@ -16,7 +16,7 @@ namespace Eulerian
 -- We model graphs as lists of pairs on a type with decidable equality.
 variable {α : Type} (E : List (α × α)) [DecidableEq α]
 
-def isNonEmpty : Prop := E.length > 0 -- This is a Test
+def isNonEmpty : Prop := E.length > 0 -- This is a Test Test Test
 
 instance : Decidable (isNonEmpty E) := inferInstanceAs (Decidable (E.length > 0))
 
