@@ -7,7 +7,7 @@ lists being sublists of their permutation
 import TBA.Eulerian.List
 
 -- If a simp has to be turned to a simp only. :D
---set_option trace.Meta.Tactic.simp true 
+-- set_option trace.Meta.Tactic.simp true 
 
 open List
 
@@ -27,6 +27,7 @@ def path (E : List (α × α)) : Prop := match E with
   | cons (a,b) [] => True 
   | cons (a,b) (cons (c,d) E) => if b = c then path (cons (c,d) E) else False
 
+-- returns the first vertex of the first edge in a list of edges
 def first (E : List (α × α)) : (h : isNonEmpty E) → α := by
   intro h 
   cases E with 
@@ -42,6 +43,7 @@ theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 <
       rw [Nat.add_succ, Nat.add_zero]
       apply Nat.leRefl
 
+-- returns the second vertex of the last edge in a list of edges
 def last (E : List (α × α)) : (h : isNonEmpty E) → α := by 
   intro h
   let h' := lastIndexValid E h 
@@ -61,6 +63,12 @@ def inDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.2 = 
 
 def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.1 = a).length
 
+-- returns list of head ends of edges.
+def heads (E : List (α × α)) : List α := map (fun e => e.2) E 
+
+-- returns list of tail ends of edges.
+def tails (E : List (α × α)) : List α := map (fun e => e.1) E 
+
 def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
 
 def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), E' ≃ E ∧ circuit E'
@@ -69,13 +77,15 @@ def preList (E E' : List (α × α)) : Prop := ∃ E'' : List (α × α), E = E'
 
 theorem prePath (E E' : List (α × α)) : preList E E' → path E → path E' := by 
   induction E with 
-  | nil => 
-    intro h h' 
-    have h'' : E' = [] := _    
-  | cons e E' ih => 
-    intro h h' 
-    _ 
+  intro h h' 
+  | nil =>
+    simp only [preList] at h
     
+  | cons e E'' ih =>
+    simp
+    
+    
+-- inserts edge in list at index n (if n is grater than list.length, it inserts it at the end)
 def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
   if n = 0
   then e :: E
@@ -105,37 +115,12 @@ def pathNonRedundant (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (
 
 theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ hpq hp  
 
-def insertEdgeAtStart (E : List (α × α)) (a b : α) : List (α × α) :=
-  (a, b) :: E
-
 def connectEnds (E : List (α × α)) (h : isNonEmpty E) : List (α × α) :=
-  insertEdgeAtStart E (last E h) (first E h)
-
-def removeFirst (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
-  E.erase (E.get 0 h)
-
-def removeLast (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
-  E.erase (E.get (E.length - 1) (lastIndexValid E h))
+  insert E (last E h, first E h) 0
 
 theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by _
 
--- List of head ends of edges.
-def heads (E : List (α × α)) : List α := map (fun e => e.2) E 
-
--- List of tail ends of edges.
-def tails (E : List (α × α)) : List α := map (fun e => e.1) E 
-
-theorem circHeadIffTail (E : List (α × α)) (h : circuit E) (e : α) : e ∈ heads E ↔ e ∈ tails E := by 
-constructor 
-  focus 
-  induction E with 
-  | nil => 
-    simp [map, heads, tails] 
-    intro h' 
-    exact h' 
-  | cons e' E' ih =>
-    simp [cons] 
-
+-- strong recursion, not sure if we still need it.
 theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
   {c : ∀ n, (∀ m, m < n → C m) → C n} : C n := by 
   suffices ∀ l, (∀ m, m < l → C m) by
@@ -162,6 +147,7 @@ theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
       let h := Nat.ltOfLeAndNe h h' 
       exact ih m h
 
+-- the acual theorem
 theorem eulerian_degrees
   (hne : isNonEmpty E)
   (sc : isStronglyConnected E)
@@ -249,6 +235,26 @@ theorem circuitRotate (E as bs : List (α × α)) (h : circuit E) : E = as++bs �
 theorem circuitRotate (E : List (α × α)) (h : circuit E) (e : α) : 
 e ∈ (map (fun (x,y) => x) E) → ∃ E' : List (α × α), ∃ h' : isNonEmpty E', E' ≃ E ∧ e = first E' h'
 := _
+
+-- hier glaube ich dass die Aussage bald schnell aus der gefolgert werden kann, dass für einen Kreis der
+-- Eingangs- und Ausgangsgrad gleich sind.
+theorem circHeadIffTail (E : List (α × α)) (h : circuit E) (e : α) : e ∈ heads E ↔ e ∈ tails E := by
+constructor 
+  focus 
+  induction E with 
+  | nil => 
+    simp [map, heads, tails] 
+    intro h' 
+    exact h' 
+  | cons e' E' ih =>
+    simp [circuit] at h
+    _
+
+def removeFirst (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
+  E.erase (E.get 0 h)
+
+def removeLast (E: List (α × α)) (h : isNonEmpty E) : List (α × α) :=
+  E.erase (E.get (E.length - 1) (lastIndexValid E h))
 -/
 
 end Eulerian
