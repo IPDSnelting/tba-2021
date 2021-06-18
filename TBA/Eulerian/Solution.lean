@@ -59,6 +59,8 @@ def reachable (E : List (α × α)) (a b : α) : Prop :=
   then True 
   else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
 
+def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
+
 def inDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.2 = a).length
 
 def outDegree (E : List (α × α)) (a : α) : Nat := (E.filter $ fun e => e.1 = a).length
@@ -224,13 +226,44 @@ theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
       let h := Nat.ltOfLeAndNe h h' 
       exact ih m h
 
--- the acual theorem
+-- Theorem that a subgraph always has at most as many edges as E.
+theorem permSubLtLength {C E : List (α × α)} (hsub : C ⊆ E) : length C ≤ length E := by 
+  have h := permEqvToEraseAppend hsub 
+  have h' := permEqvLength h 
+  rw [length_append] at h'
+  rw [h']
+  exact Nat.leAddLeft (length C) (length (E -l C))
+
+-- If a graph is not Eulerian, all of its circuit have a smaller length.
+theorem notEulerianNoEqCircuit (hne : ¬isEulerian E) 
+  : ∀ C : List (α × α), C ⊆ E ∧ circuit C → C.length < E.length := by 
+  intro C hall
+  byCases h : C ≃ E 
+  case inl => 
+    have heulerian : isEulerian E := Exists.intro C (And.intro h hall.right) 
+    cases hne heulerian 
+  case inr => 
+    have h'' := permSubLtLength hall.left 
+    exact Nat.ltOfLeAndNe h'' (contraposition (permEqvOfPermSub hall.left) h)
+
+theorem existenceCircuit (E : List (α × α)) (sc : isStronglyConnected E) 
+  : ∃ C : List (α × α), C ⊆ E ∧ circuit C := by _ 
+
+theorem maxCircuit (E : List (α × α)) (hne : isNonEmpty E) (sc : isStronglyConnected E)
+  : ∃ Cmax : List (α × α), Cmax ⊆ E ∧ circuit Cmax ∧ ∀ C : List (α × α), C ⊆ E ∧ circuit C → C.length ≤ Cmax.length := by _
+
+-- the actual theorem
 theorem eulerian_degrees
   (hne : isNonEmpty E)
   (sc : isStronglyConnected E)
   (ed : hasEqualInOutDegrees E)
   : isEulerian E := by 
-  _
+    suffices ∀ C : List (α × α), C ⊆ E ∧ circuit C ∧ C.length < E.length 
+    → ∃ C' : List (α × α), C' ⊆ E ∧ circuit C' ∧ C.length < C'.length by
+      byCases h : isEulerian E 
+      case inl => exact h 
+      case inr => 
+        let h' := notEulerianNoEqCircuit E h 
   
 /- 
 Dinge, deren Nützlichkeit ich noch nicht direkt sehe, aber sicher nicht schlecht sind:
@@ -245,8 +278,6 @@ def strongComponent (E C : List (α × α)) : Prop := maximal E C (isStronglyCon
 def bridge (E : List (α × α)) (a : (α × α)) : Prop := ¬ reachable (E.erase a) a.1 a.2
 
 def isWeaklyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable (undirected E) a b
-
-def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
 
 -- inverted edge
 def inverse (e : α × α) : α × α := (e.2, e.1)
