@@ -118,7 +118,84 @@ theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ 
 def connectEnds (E : List (α × α)) (h : isNonEmpty E) : List (α × α) :=
   insert E (last E h, first E h) 0
 
-theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by _
+theorem midPathEqualInOut (E: List (α × α)) (h : isNonEmpty E) (h': path E) : 
+  ∀ a : α , ¬(a = first E h) → ¬(a = last E h) → ((inDegree E a) = (outDegree E a)) := _
+
+-- to prove theorem from Exersise sheet 1
+open Classical
+
+theorem imp_not_not : p → ¬¬p := 
+  fun hp hnp => hnp hp
+
+theorem notNot : ¬¬p → p := 
+  fun hnnp =>
+   match em p with
+   | Or.inl hp => hp
+   | Or.inr hnp => False.elim (hnnp hnp)
+
+theorem not_and : ¬(p ∧ q) → (¬ p ∨ ¬ q) := 
+  fun hn =>
+  match em p with
+  | Or.inl hp  =>
+    match em q with
+    | Or.inl hq  => False.elim (hn ⟨hp, hq⟩)
+    | Or.inr hnq => Or.inr hnq
+  | Or.inr hnp => Or.inl hnp
+
+theorem deMorgan' (a b : Prop) : ¬(¬ a ∧ ¬ b) ↔ a ∨ b := by
+  constructor
+  case mp => 
+    intro h
+    have h': (¬ ¬ a ∨ ¬ ¬ b) := by
+      exact not_and h
+    
+    -- how to unfold Or in h'?
+
+/-
+byCases h'': ¬¬a 
+    case inl => 
+      have ha: a := by
+        exact (notNot h'')
+      simp_all
+    case inr =>
+-/
+    
+    
+
+
+theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by 
+  simp only [hasEqualInOutDegrees]
+  intro a
+  simp only [circuit] at h
+  induction E with
+  | nil           => 
+    have hin: inDegree [] a = 0 := by
+      simp_all [inDegree]
+    have hout: outDegree [] a = 0 := by
+      simp_all [outDegree]
+    simp_all
+  | cons e E' ih  => 
+    let E := e :: E'
+    have h': isNonEmpty E := by
+      have h'': ¬(length (e :: E') = 0) := by
+        simp [length_cons_ne_zero]
+      simp only [isNonEmpty]
+      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
+        apply Nat.eqZeroOrPos (length (e :: E'))
+      simp_all
+    have h'': isNonEmpty (e :: E') := by
+      simp_all
+    have h''': path (e :: E') ∧ (first (e :: E') h' = last (e :: E') h') := by
+      simp_all
+    byCases hmid: ¬(a = first (e :: E') h'') ∧ ¬(a = last (e :: E') h'')
+    case cons.inl =>
+      apply (midPathEqualInOut (e :: E') h'' h'''.1 a hmid.1 hmid.2)
+    case cons.inr =>
+
+      
+    
+      
+      
 
 -- strong recursion, not sure if we still need it.
 theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
