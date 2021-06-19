@@ -247,11 +247,10 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E)
     have h'' := permSubLtLength hall.left 
     exact Nat.ltOfLeAndNe h'' (contraposition (permEqvOfPermSub hall.left) h)
 
-theorem existenceCircuit (E : List (α × α)) (sc : isStronglyConnected E) 
-  : ∃ C : List (α × α), C ⊆ E ∧ circuit C := by _ 
+theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (sc : isStronglyConnected E) 
+ : ∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ isNonEmpty C := _
 
-theorem maxCircuit (E : List (α × α)) (hne : isNonEmpty E) (sc : isStronglyConnected E)
-  : ∃ Cmax : List (α × α), Cmax ⊆ E ∧ circuit Cmax ∧ ∀ C : List (α × α), C ⊆ E ∧ circuit C → C.length ≤ Cmax.length := by _
+def adjacentEdge (circuit C) 
 
 -- the actual theorem
 theorem eulerian_degrees
@@ -261,11 +260,42 @@ theorem eulerian_degrees
   : isEulerian E := by 
     suffices ∀ C : List (α × α), C ⊆ E ∧ circuit C ∧ C.length < E.length 
     → ∃ C' : List (α × α), C' ⊆ E ∧ circuit C' ∧ C.length < C'.length by
-      byCases h : isEulerian E 
-      case inl => exact h 
-      case inr => 
-        let h' := notEulerianNoEqCircuit E h 
-  
+      let h : ∀ n : Nat, n < E.length → (∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ n < C.length) := by 
+        intro n 
+        induction n with 
+        | zero => 
+          intro _
+          exact existenceCircuit E hne sc 
+        | succ n ih => 
+          intro hlt 
+          have ⟨C, hsub, hcirc, hltc⟩ := ih $ Nat.ltOfSuccLe $ Nat.leOfLt hlt 
+          have hle := permSubLtLength hsub 
+          byCases heq : C.length = E.length 
+          case inl => 
+            rw [← heq] at hlt
+            exact ⟨C, hsub, hcirc, hlt⟩ 
+          case inr => 
+            have ⟨C', hsub', hcirc', hltc'⟩ := this C ⟨hsub, hcirc, Nat.ltOfLeAndNe hle heq⟩ 
+            let hltc' := Nat.ltOfLeOfLt (Nat.succLeOfLt hltc) hltc' 
+            exact ⟨C', hsub', hcirc', hltc'⟩ 
+      have ⟨C, hsub, hcirc, hltc⟩ := h (E.length - 1) $ lastIndexValid E hne 
+      have heq := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
+      exact ⟨C, permEqvOfPermSub hsub heq, hcirc⟩ 
+    intro C ⟨hsub, hcirc, hlt⟩
+    byCases hempty : E -l C = [] 
+    case inl =>  
+      let heqv := permEqvToEraseAppend hsub 
+      rw [hempty] at heqv 
+      rw [nil_append] at heqv  
+      let heq := permEqvLength heqv 
+      rw [heq] at hlt
+      cases Nat.ltIrrefl C.length hlt   
+    case inr => 
+      let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
+      let hempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
+    
+
+
 /- 
 Dinge, deren Nützlichkeit ich noch nicht direkt sehe, aber sicher nicht schlecht sind:
 
