@@ -249,6 +249,8 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E)
 theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (sc : isStronglyConnected E) 
  : ∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ isNonEmpty C := _
 
+def adjacentEdge (circuit C) 
+
 -- the actual theorem
 theorem eulerian_degrees
   (hne : isNonEmpty E)
@@ -276,9 +278,23 @@ theorem eulerian_degrees
             let hltc' := Nat.ltOfLeOfLt (Nat.succLeOfLt hltc) hltc' 
             exact ⟨C', hsub', hcirc', hltc'⟩ 
       have ⟨C, hsub, hcirc, hltc⟩ := h (E.length - 1) $ lastIndexValid E hne 
-      have heq : C.length = E.length := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
+      have heq := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
       exact ⟨C, permEqvOfPermSub hsub heq, hcirc⟩ 
-  
+    intro C ⟨hsub, hcirc, hlt⟩
+    byCases hempty : E -l C = [] 
+    case inl =>  
+      let heqv := permEqvToEraseAppend hsub 
+      rw [hempty] at heqv 
+      rw [nil_append] at heqv  
+      let heq := permEqvLength heqv 
+      rw [heq] at hlt
+      cases Nat.ltIrrefl C.length hlt   
+    case inr => 
+      let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
+      let hempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
+    
+
+
 /- 
 Dinge, deren Nützlichkeit ich noch nicht direkt sehe, aber sicher nicht schlecht sind:
 
