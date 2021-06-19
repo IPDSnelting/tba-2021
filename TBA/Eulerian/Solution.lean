@@ -49,10 +49,17 @@ def last (E : List (α × α)) : (h : isNonEmpty E) → α := by
   let h' := lastIndexValid E h 
   exact (E.get (E.length - 1) h').2 
 
-def circuit (E : List (α × α)) : Prop := 
-  if h : isNonEmpty E
-  then path E ∧ first E h = last E h 
-  else True -- Debatable if it should return True. For our purposes probably better.
+theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
+  have h'': ¬(length (e :: E') = 0) := by
+        simp [length_cons_ne_zero]
+      simp only [isNonEmpty]
+      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
+        apply Nat.eqZeroOrPos (length (e :: E'))
+  simp_all [isNonEmpty]
+
+def circuit (E : List (α × α)) : Prop := match E with
+  | nil => True
+  | cons e E' => e.1 = last (e :: E') (eENonEmpty e E') ∧ path (e :: E')
 
 def reachable (E : List (α × α)) (a b : α) : Prop := 
   if a = b 
@@ -174,12 +181,7 @@ theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutD
   | cons e E' ih  => 
     let E := e :: E'
     have h': isNonEmpty E := by
-      have h'': ¬(length (e :: E') = 0) := by
-        simp [length_cons_ne_zero]
-      simp only [isNonEmpty]
-      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
-        apply Nat.eqZeroOrPos (length (e :: E'))
-      simp_all
+      exact eENonEmpty e E'
     have h'': isNonEmpty (e :: E') := by
       simp_all
     have h''': path (e :: E') ∧ (first (e :: E') h' = last (e :: E') h') := by
@@ -196,7 +198,7 @@ theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutD
           simp_all [h'''.2] 
         | Or.inr hLast  =>
           simp_all [h'''.1]
-    
+      
       
       
 
