@@ -123,7 +123,7 @@ def connectEnds (E : List (α × α)) (h : isNonEmpty E) : List (α × α) :=
 theorem midPathEqualInOut (E: List (α × α)) (h : isNonEmpty E) (h': path E) : 
   ∀ a : α , ¬(a = first E h) → ¬(a = last E h) → ((inDegree E a) = (outDegree E a)) := _
 
--- to prove theorem from Exersise sheet 1
+-- to prove theorems from Exersise sheet 1
 open Classical
 
 theorem imp_not_not : p → ¬¬p := 
@@ -144,27 +144,22 @@ theorem not_and : ¬(p ∧ q) → (¬ p ∨ ¬ q) :=
     | Or.inr hnq => Or.inr hnq
   | Or.inr hnp => Or.inl hnp
 
-theorem deMorgan' (a b : Prop) : ¬(¬ a ∧ ¬ b) ↔ a ∨ b := by
-  constructor
-  case mp => 
-    intro h
-    have h': (¬ ¬ a ∨ ¬ ¬ b) := by
-      exact not_and h
-    
-    -- how to unfold Or in h'?
+theorem not_or_not : (¬p ∨ ¬q) → ¬(p ∧ q) := 
+  fun hor ⟨hp, hq⟩ =>
+    match hor with
+    | Or.inl hnp => hnp hp
+    | Or.inr hnq => hnq hq
 
-/-
-byCases h'': ¬¬a 
-    case inl => 
-      have ha: a := by
-        exact (notNot h'')
-      simp_all
-    case inr =>
--/
-    
-    
-
-
+theorem deMorgan' (a b : Prop) : ¬(¬ a ∧ ¬ b) → a ∨ b := by
+  intro h
+  have h': (¬ ¬ a ∨ ¬ ¬ b) := by
+    exact not_and h
+  match h' with
+  | Or.inl hna => 
+    simp_all [notNot]
+  | Or.inr hnb =>
+    simp_all [notNot]
+  
 theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by 
   simp only [hasEqualInOutDegrees]
   intro a
@@ -193,8 +188,14 @@ theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutD
     case cons.inl =>
       apply (midPathEqualInOut (e :: E') h'' h'''.1 a hmid.1 hmid.2)
     case cons.inr =>
-
-      
+      have hFirstOrLast: a = first (e :: E') h'' ∨ a = last (e :: E') h'' := by
+        exact deMorgan' (a = first (e :: E') h'') (a = last (e :: E') h'') hmid 
+      have hFirstAndLast: a = first (e :: E') h'' ∧ a = last (e :: E') h'' := by
+        match hFirstOrLast with
+        | Or.inl hFirst => 
+          simp_all [h'''.2] 
+        | Or.inr hLast  =>
+          simp_all [h'''.1]
     
       
       
