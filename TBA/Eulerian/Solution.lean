@@ -54,11 +54,18 @@ theorem subPath (E : List (α × α)) (h : path E) : ∀ as bs : List (α × α)
       have hpath : path E' := _
 
 -- returns the first vertex of the first edge in a list of edges
-def first (E : List (α × α)) : (h : isNonEmpty E) → α := by
-  intro h 
+def first (E : List (α × α)) (h : isNonEmpty E) : α := by
   cases E with 
     | nil => simp [isNonEmpty] at h
     | cons e E => exact e.1
+
+theorem prefixPreservesFirst (E E' : List (α × α)) (h : isNonEmpty E) (h' : isNonEmpty E') : (∃ tail : List (α × α), E = E' ++ tail) → first E h = first E' h' := by 
+  intro ⟨tail, heq⟩ 
+  induction tail with 
+  | nil => 
+    simp [nil_append] at heq -- use trace to remove simp later.
+  | 
+
 
 theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
   cases E with 
@@ -149,6 +156,15 @@ def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) :=
     | cons e' E' => e' :: insert E' e (n-1)
 
 #eval insert [(1,2),(2,3)] (5,4) 1
+
+theorem pathLastEdge (p : List (α × α)) (hpath : path p) (hne : isNonEmpty p) : ∃ e : (α × α), e ∈ p ∧ e.2 = last p hne := by 
+  induction p with 
+  | nil => 
+    simp only [isNonEmpty] at hne 
+    rw [length_zero_iff_nil.mpr] at hne
+    cases Nat.ltIrrefl 0 hne 
+  | cons x p ih => 
+    _
 
 -- Returns longest prefix of elements that satisfy p.
 def takeWhile (p : α → Bool) : List α → List α 
@@ -249,7 +265,7 @@ theorem deMorgan' (a b : Prop) : ¬(¬ a ∧ ¬ b) → a ∨ b := by
   | Or.inr hnb =>
     simp_all [notNot]
 
-theorem circuitEqualInOut1 (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by
+theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by
   simp only [hasEqualInOutDegrees]
   intro a
   simp only [circuit] at h
@@ -269,7 +285,30 @@ theorem circuitEqualInOut1 (E : List (α × α)) (h : circuit E) : hasEqualInOut
         simp_all
       _
       
-      
+-- Removing a circuit from a graph with equal in- and out degrees preserves that property.
+/- Could be generalized for any subgraph with equal in- and out degrees. -/
+theorem removeCircuit (C E : List (α × α)) (hsub : C ⊆ E) (ed : hasEqualInOutDegrees E) (hcirc : circuit C) 
+  : hasEqualInOutDegrees $ E -l C := by 
+  simp only [hasEqualInOutDegrees, inDegree, outDegree]
+  intro a 
+  have heqv := permEqvToEraseAppend hsub 
+  have hout := permEqvFilter (fun e => e.2 = a) heqv 
+  have hin  := permEqvFilter (fun e => e.1 = a) heqv 
+  rw [filter_append] at hout
+  rw [filter_append] at hin 
+  have hout := permEqvLength hout 
+  have hin  := permEqvLength hin 
+  simp only [length_append] at hout
+  simp only [length_append] at hin 
+  have heqE := ed a
+  simp only [hasEqualInOutDegrees, inDegree, outDegree] at heqE
+  rw [hin] at heqE 
+  rw [hout] at heqE 
+  have heqC := circuitEqualInOut C hcirc a
+  simp only [hasEqualInOutDegrees, inDegree, outDegree] at heqC 
+  rw [heqC] at heqE 
+  exact Nat.add_right_cancel heqE
+
 -- strong recursion, not sure if we still need it.
 theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
   {c : ∀ n, (∀ m, m < n → C m) → C n} : C n := by 
