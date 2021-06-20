@@ -127,8 +127,44 @@ theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ 
 def connectEnds (E : List (α × α)) (h : isNonEmpty E) : List (α × α) :=
   insert E (last E h, first E h) 0
 
+theorem inDegreeSingle (e : α × α) (a : α) : if a = e.2 then inDegree [e] a = 1 else inDegree [e] a = 0 := _
+
+theorem outDegreeSingle (e : α × α) (a : α) : if a = e.1 then outDegree [e] a = 1 else outDegree [e] a = 0 := _
+
 theorem midPathEqualInOut (E: List (α × α)) (h : isNonEmpty E) (h': path E) : 
-  ∀ a : α , ¬(a = first E h) → ¬(a = last E h) → ((inDegree E a) = (outDegree E a)) := _
+  ∀ a : α , ¬(a = first E h) → ¬(a = last E h) → ((inDegree E a) = (outDegree E a)) := by
+  intro a nfirst nlast
+  induction E with
+  | nil => 
+    simp_all [inDegree, outDegree]
+  | cons e E' ih =>
+    byCases loop: e.1 = e.2
+    case cons.inl =>
+      match E' with
+      | nil => 
+        have outdeg: outDegree [e] a = 0 := by
+          have f: e.1 = first [e] h := by
+            simp [first]
+          rw [←f] at nfirst
+          have outDegreeSingle': if a = e.1 then outDegree [e] a = 1 else outDegree [e] a = 0 := by
+            exact outDegreeSingle e a
+          simp_all
+        have indeg : inDegree [e] a = 0 := by
+          have f: e.2 = last [e] h := by
+            simp only [last]
+            have length: length [e] = 1 := by
+              simp
+            rfl
+          rw [←f] at nlast
+          have inDegreeSingle': if a = e.2 then inDegree [e] a = 1 else inDegree [e] a = 0 := by
+            exact inDegreeSingle e a
+          simp_all
+        simp_all [indeg, outdeg]
+      | cons e' E'' => 
+        have h'': e.2 = e'.1 := by
+          -- hier muss vielleicht die Definition von Path doch etwas angepasst werden. Ich schaffe es nicht, 
+          -- aus "path (e :: e' :: E'')" zu folgern, dass e.2 = e'.1 gilt, was ja in der Definition steckt..
+          
 
 -- to prove theorems from Exersise sheet 1
 open Classical
@@ -166,42 +202,28 @@ theorem deMorgan' (a b : Prop) : ¬(¬ a ∧ ¬ b) → a ∨ b := by
     simp_all [notNot]
   | Or.inr hnb =>
     simp_all [notNot]
-  
-theorem circuitEqualInOut (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by 
+
+theorem circuitEqualInOut1 (E : List (α × α)) (h : circuit E) : hasEqualInOutDegrees E := by
   simp only [hasEqualInOutDegrees]
   intro a
   simp only [circuit] at h
-  induction E with
-  | nil           => 
-    have hin: inDegree [] a = 0 := by
-      simp_all [inDegree]
-    have hout: outDegree [] a = 0 := by
-      simp_all [outDegree]
-    simp_all
-  | cons e E' ih  => 
-    let E := e :: E'
-    have h': isNonEmpty E := by
-      exact eENonEmpty e E'
-    have h'': isNonEmpty (e :: E') := by
-      simp_all
-    have h''': path (e :: E') ∧ (first (e :: E') h' = last (e :: E') h') := by
-      simp_all
-    byCases hmid: ¬(a = first (e :: E') h'') ∧ ¬(a = last (e :: E') h'')
-    case cons.inl =>
-      apply (midPathEqualInOut (e :: E') h'' h'''.1 a hmid.1 hmid.2)
-    case cons.inr =>
-      have hFirstOrLast: a = first (e :: E') h'' ∨ a = last (e :: E') h'' := by
-        exact deMorgan' (a = first (e :: E') h'') (a = last (e :: E') h'') hmid 
-      have hFirstAndLast: a = first (e :: E') h'' ∧ a = last (e :: E') h'' := by
-        match hFirstOrLast with
-        | Or.inl hFirst => 
-          simp_all [h'''.2] 
-        | Or.inr hLast  =>
-          simp_all [h'''.1]
+  match E with
+  | nil =>
+    simp_all [inDegree, outDegree]
+  | cons e E' =>
+    have h': e.1 = last (e :: E') (eENonEmpty e E') ∧ path (e :: E') := by
+      simp_all [h]
+    byCases mid: ¬(a = first (e :: E') (eENonEmpty e E')) ∧ ¬(a = last (e :: E') (eENonEmpty e E'))
+    case inl =>
+      apply (midPathEqualInOut (e :: E') (eENonEmpty e E') h'.2 a mid.1 mid.2)
+    case inr =>
+      have firstlast: a = e.1 ∧ a = last (e :: E') (eENonEmpty e E') := by
+        have firstOrlast: a = e.1 ∨ a = last (e :: E') (eENonEmpty e E') := by
+          exact deMorgan' (a = e.1) (a = last (e :: E') (eENonEmpty e E')) mid
+        simp_all
+      _
       
       
-      
-
 -- strong recursion, not sure if we still need it.
 theorem Nat.strongRecOn (n : Nat) {C : Nat → Sort u}
   {c : ∀ n, (∀ m, m < n → C m) → C n} : C n := by 
@@ -252,7 +274,7 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E)
 theorem existenceCircuitWithStartEdge (E : List (α × α)) (sc : isStronglyConnected E) (e : (α × α)) (h : e ∈ E) 
   : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) := _ 
 
-theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (sc : isStronglyConnected E) 
+theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (hio : inDegree E = outDegree E) 
   : ∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ isNonEmpty C := by 
   match E with 
   | nil => 
