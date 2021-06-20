@@ -271,19 +271,19 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E)
     have h'' := permSubLtLength hall.left 
     exact Nat.ltOfLeAndNe h'' (contraposition (permEqvOfPermSub hall.left) h)
 
-theorem existenceCircuitWithStartEdge (E : List (α × α)) (sc : isStronglyConnected E) (e : (α × α)) (h : e ∈ E) 
+theorem existenceCircuitWithStartEdge (E : List (α × α)) (e : (α × α)) (h : e ∈ E) (ed : hasEqualInOutDegrees E)  
   : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) := _ 
 
-theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (hio : inDegree E = outDegree E) 
+theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (ed : hasEqualInOutDegrees E) 
   : ∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ isNonEmpty C := by 
   match E with 
   | nil => 
     simp only [isNonEmpty] at hne 
     simp_all 
   | cons e E' => 
-    let ⟨C, hsub, hcirc⟩ := existenceCircuitWithStartEdge (e::E') sc e (Mem.head e E')
+    let ⟨C, hsub, hcirc⟩ := existenceCircuitWithStartEdge (e::E') e (Mem.head e E') ed 
     exact ⟨e::C, hsub, hcirc, eENonEmpty e C⟩  
-    
+
 -- Definition for when an edge is adjacent to a graph. 
 def adjacentEdge (E : List (α × α)) (e : (α × α)) := e.1 ∈ heads E  
 
@@ -300,7 +300,7 @@ theorem eulerian_degrees
         induction n with 
         | zero => 
           intro _
-          exact existenceCircuit E hne sc 
+          exact existenceCircuit E hne ed
         | succ n ih => 
           intro hlt 
           have ⟨C, hsub, hcirc, hltc⟩ := ih $ Nat.ltOfSuccLe $ Nat.leOfLt hlt 
