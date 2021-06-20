@@ -25,15 +25,33 @@ instance : Decidable (isNonEmpty E) := inferInstanceAs (Decidable (E.length > 0)
 def path (E : List (α × α)) : Prop := match E with
   | [] => True
   | cons (a,b) [] => True 
-  | cons (a,b) (cons (c,d) E) => if b = c then path (cons (c,d) E) else False
+  | cons (a,b) (cons (c,d) E) => 
+    match decEq b c with
+    | isTrue _ =>  path (cons (c,d) E) 
+    | isFalse _ => False
 
+-- Theorem that sublists of E are also paths.
 theorem subPath (E : List (α × α)) (h : path E) : ∀ as bs : List (α × α), E = as ++ bs → path as ∧ path bs := by 
   induction E with 
   | nil => 
     intros as bs heq
-    match as bs with 
-    | nil nil =>  
-  | cons e' E' ih => _
+    cases as with 
+    | nil => 
+      cases bs with 
+      | nil => simp [path]
+      | cons b bs => 
+        simp [length_zero_iff_nil] at heq 
+    | cons a as => 
+      simp [length_zero_iff_nil] at heq 
+  | cons e' E' ih => 
+    intro as bs heq 
+    cases as with 
+    | nil => 
+      rw [nil_append] at heq 
+      exact ⟨by simp [path], (by rw [← heq]; exact h)⟩ 
+    | cons a as => 
+      have heqedge : e' = a := by simp [heq]      
+      have hpath : path E' := _
 
 -- returns the first vertex of the first edge in a list of edges
 def first (E : List (α × α)) : (h : isNonEmpty E) → α := by
@@ -51,12 +69,6 @@ theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 <
       rw [Nat.add_succ, Nat.add_zero]
       apply Nat.leRefl
 
--- returns the second vertex of the last edge in a list of edges
-def last (E : List (α × α)) : (h : isNonEmpty E) → α := by 
-  intro h
-  let h' := lastIndexValid E h 
-  exact (E.get (E.length - 1) h').2 
-
 theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
   have h'': ¬(length (e :: E') = 0) := by
         simp [length_cons_ne_zero]
@@ -65,14 +77,39 @@ theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E'
         apply Nat.eqZeroOrPos (length (e :: E'))
   simp_all [isNonEmpty]
 
+-- returns the second vertex of the last edge in a list of edges
+def last (E : List (α × α)) : (h : isNonEmpty E) → α := by 
+  intro h
+  let h' := lastIndexValid E h 
+  exact (E.get (E.length - 1) h').2 
+
+theorem pathAppend 
+  (p q : List (α × α)) 
+  (hpp : path p) (hqq : path q) 
+  (hnep : isNonEmpty p) (hneq : isNonEmpty q) 
+  (heq : last p hnep = first q hneq) : path (p++q) := by 
+  induction p with 
+  | nil => 
+    rw [nil_append]
+    exact hqq 
+  | cons x p' ih => 
+    cases hp' : p' with 
+    | nil => 
+      rw [← cons_eq_append]
+      cases hq : q with 
+      | nil => simp_all [path]
+      | cons z q' => 
+      _ 
+    | (y::p'') => 
+
 def circuit (E : List (α × α)) : Prop := match E with
   | nil => True
   | cons e E' => e.1 = last (e :: E') (eENonEmpty e E') ∧ path (e :: E')
 
 def reachable (E : List (α × α)) (a b : α) : Prop := 
-  if a = b 
-  then True 
-  else ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
+  match decEq a b with 
+  | isTrue _ => True 
+  | isFalse _ => ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p ∧ first p h = a ∧ last p h = b 
 
 def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
 
@@ -104,9 +141,10 @@ theorem prePath (E E' : List (α × α)) : preList E E' → path E → path E' :
     
 -- inserts edge in list at index n (if n is grater than list.length, it inserts it at the end)
 def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
-  if n = 0
-  then e :: E
-  else match E with 
+  match decEq n 0 with 
+  | isTrue _ => e::E 
+  | isFalse _ => 
+    match E with 
     | [] => [e]
     | cons e' E' => e' :: insert E' e (n-1)
 
@@ -279,9 +317,11 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E)
     have h'' := permSubLtLength hall.left 
     exact Nat.ltOfLeAndNe h'' (contraposition (permEqvOfPermSub hall.left) h)
 
+-- If a graph has equal in- and out degrees and contains an edge e, then there is a circuit starting with e.
 theorem existenceCircuitWithStartEdge (E : List (α × α)) (e : (α × α)) (h : e ∈ E) (ed : hasEqualInOutDegrees E)  
   : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) := _ 
 
+-- Corollary: If a graph has equal in- and out degrees and is non-empty, that it contains a non-empty circuit.
 theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (ed : hasEqualInOutDegrees E) 
   : ∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ isNonEmpty C := by 
   match E with 
@@ -301,6 +341,7 @@ theorem eulerian_degrees
   (sc : isStronglyConnected E)
   (ed : hasEqualInOutDegrees E)
   : isEulerian E := by 
+    -- It's sufficient to prove that every circuit that isn't already the whole graph can be enlarged.
     suffices ∀ C : List (α × α), C ⊆ E ∧ circuit C ∧ C.length < E.length 
     → ∃ C' : List (α × α), C' ⊆ E ∧ circuit C' ∧ C.length < C'.length by
       have h : ∀ n : Nat, n < E.length → (∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ n < C.length) := by 
@@ -324,88 +365,56 @@ theorem eulerian_degrees
       have ⟨C, hsub, hcirc, hltc⟩ := h (E.length - 1) $ lastIndexValid E hne 
       have heq := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
       exact ⟨C, permEqvOfPermSub hsub heq, hcirc⟩ 
+    -- Let C be such a circuit.
     intro C ⟨hsub, hcirc, hlt⟩
     have heqv := permEqvToEraseAppend hsub 
     cases hrest : (E -l C) with 
     | nil => 
+      -- If E - C is empty, then C can't be a proper subgraph of E.
       rw [hrest, nil_append] at heqv  
       have heq := permEqvLength heqv 
       rw [heq] at hlt
       cases Nat.ltIrrefl C.length hlt   
     | cons e' E' => 
-      have hnempty := eENonEmpty e' E'
-      have hAdj : ∃ e e' : (α × α), e ∈ C ∧ e' ∈ (E -l C) ∧ e.2 = e'.1 := by
-        byCases houter : ∃ a : α, filter (fun e => e.2 = a) C = [] 
-        case inr => 
-          have hall := fun a hempty => houter ⟨a, hempty⟩ 
-          have hfilter := hall e'.1 
-          cases hcfilter : filter (fun e => e.2 = e'.1) C with 
-          | nil => cases hfilter hcfilter
-          | cons e C' =>
-            have hin := Mem.head e C'
-            rw [← hcfilter] at hin 
-            have hprop := filterProp_of_mem hin
-            exact ⟨e, e', mem_of_mem_filter hin, (by rw [hrest]; exact Mem.head e' E'), ofDecideEqTrue hprop⟩ 
-        case inl => 
-          have ⟨a, hfempty⟩ := houter 
-
-        --byCases houter : ∃ a : α, ∀ e : (α × α), e ∈ C → e.2 ≠ a
-        --case inr =>  
-        --have hall : ∀ a : α,  := fun 
-        --have hall : ∀ a : α, ∃ e : (α × α), e ∈ C ∧ e.2 = a := by 
-        --  intro a 
-          --¬(∃ x, p x) → (∀ x, ¬ p x) := 
-          --fun h x hp => h ⟨x, hp⟩
-        --case inl => _
-        /-
-        byCases hall : ∀ a : α, ∃ e : (α × α), e ∈ C ∧ e.2 = a 
-        case inl => 
-          have ⟨e, hmem, hadj⟩ := hall e'.1 
-          exact ⟨e, e', hmem, (by rw [hrest]; exact Mem.head e' E'), hadj⟩ 
-        case inr => 
-          have hall : ∃ a : α, ∀ e : (α × α), ¬(e ∈ C ∧ e.2 = a) := by 
-        -/
-            
-
-    /-
-    match (E -l C) with 
-    | nil => 
-      rw [nil_append] at heqv  
-      let heq := permEqvLength heqv 
-      rw [heq] at hlt
-      cases Nat.ltIrrefl C.length hlt   
-    | cons e' E' => 
-      let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
-      let hnempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
-    -/
-    /-
-    byCases hempty : E -l C = [] 
-    case inl =>  
-      let heqv := permEqvToEraseAppend hsub 
-      rw [hempty] at heqv 
-      rw [nil_append] at heqv  
-      let heq := permEqvLength heqv 
-      rw [heq] at hlt
-      cases Nat.ltIrrefl C.length hlt   
-    case inr => 
-      let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
-      let hnempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
-      have hAdj : ∃ e e' : (α × α), e ∈ C ∧ e' ∈ (E -l C) ∧ e.2 = e'.1 := 
-        match E -l C with 
-        | [] => simp at hempty 
-        | cons e' E' => 
-         by 
-          byCases hall : ∀ a : α, ∃e : (α × α), e ∈ C ∧ e.2 = a 
+      -- So, w.l.o.g. is E - C non-empty. 
+      have hrnempty := eENonEmpty e' E'
+      -- W.l.o.g. is C also non-empty. (This is important, as we want )
+      /-
+        This is important: 
+        We want to argue that by sc there is path between an edge in C and one in E - C. 
+        But for that, we must first look at the edge case that C is actually the empty circuit.
+      -/
+      cases hc : C with 
+      | nil => 
+        have ⟨C', hsub', hcirc', hltc'⟩ := existenceCircuit E hne ed
+        exact ⟨C', hsub', hcirc', (by simp_all [hltc', isNonEmpty])⟩ 
+      | cons c' C' => 
+        have hcnempty := eENonEmpty c' C' 
+        -- There is an edge in E - C adjacent to C.
+        have hAdj : ∃ e e' : (α × α), e ∈ C ∧ e' ∈ (E -l C) ∧ e.2 = e'.1 := by
+          byCases houter : ∃ a : α, filter (fun e => e.2 = a) C = [] 
+          case inr => 
+          -- If every vertex is in C, then there trivially is such an edge.
+            have hall := fun a hempty => houter ⟨a, hempty⟩ 
+            have hfilter := hall e'.1 
+            cases hcfilter : filter (fun e => e.2 = e'.1) C with 
+            | nil => cases hfilter hcfilter
+            | cons e C' =>
+              have hin := Mem.head e C'
+              rw [← hcfilter] at hin 
+              have hprop := filterProp_of_mem hin
+              exact ⟨e, e', mem_of_mem_filter hin, (by rw [hrest]; exact Mem.head e' E'), ofDecideEqTrue hprop⟩ 
           case inl => 
-            let ⟨e, hmem, hadj⟩ := hall e'
-            
-            
-          --let ⟨e, hmem, hadj⟩ := hall (first (E -l C) hnempty)
-    -/
-    
-
-
-
+          -- Case: There is a vertex in the outer of C.
+            have ⟨a, hfempty⟩ := houter
+            have hreachable := sc c'.2 a
+            simp only [reachable] at hreachable 
+            match decEq c'.2 a with 
+            | isTrue heqedge => 
+              rw [heqedge] at hreachable
+            | isFalse hneqedge => 
+              simp_all [hneqedge] at hreachable
+              _
 /- 
 Dinge, deren Nützlichkeit ich noch nicht direkt sehe, aber sicher nicht schlecht sind:
 
