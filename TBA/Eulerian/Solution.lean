@@ -27,6 +27,14 @@ def path (E : List (α × α)) : Prop := match E with
   | cons (a,b) [] => True 
   | cons (a,b) (cons (c,d) E) => if b = c then path (cons (c,d) E) else False
 
+theorem subPath (E : List (α × α)) (h : path E) : ∀ as bs : List (α × α), E = as ++ bs → path as ∧ path bs := by 
+  induction E with 
+  | nil => 
+    intros as bs heq
+    match as bs with 
+    | nil nil =>  
+  | cons e' E' ih => _
+
 -- returns the first vertex of the first edge in a list of edges
 def first (E : List (α × α)) : (h : isNonEmpty E) → α := by
   intro h 
@@ -295,7 +303,7 @@ theorem eulerian_degrees
   : isEulerian E := by 
     suffices ∀ C : List (α × α), C ⊆ E ∧ circuit C ∧ C.length < E.length 
     → ∃ C' : List (α × α), C' ⊆ E ∧ circuit C' ∧ C.length < C'.length by
-      let h : ∀ n : Nat, n < E.length → (∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ n < C.length) := by 
+      have h : ∀ n : Nat, n < E.length → (∃ C : List (α × α), C ⊆ E ∧ circuit C ∧ n < C.length) := by 
         intro n 
         induction n with 
         | zero => 
@@ -317,6 +325,60 @@ theorem eulerian_degrees
       have heq := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
       exact ⟨C, permEqvOfPermSub hsub heq, hcirc⟩ 
     intro C ⟨hsub, hcirc, hlt⟩
+    have heqv := permEqvToEraseAppend hsub 
+    cases hrest : (E -l C) with 
+    | nil => 
+      rw [hrest, nil_append] at heqv  
+      have heq := permEqvLength heqv 
+      rw [heq] at hlt
+      cases Nat.ltIrrefl C.length hlt   
+    | cons e' E' => 
+      have hnempty := eENonEmpty e' E'
+      have hAdj : ∃ e e' : (α × α), e ∈ C ∧ e' ∈ (E -l C) ∧ e.2 = e'.1 := by
+        byCases houter : ∃ a : α, filter (fun e => e.2 = a) C = [] 
+        case inr => 
+          have hall := fun a hempty => houter ⟨a, hempty⟩ 
+          have hfilter := hall e'.1 
+          cases hcfilter : filter (fun e => e.2 = e'.1) C with 
+          | nil => cases hfilter hcfilter
+          | cons e C' =>
+            have hin := Mem.head e C'
+            rw [← hcfilter] at hin 
+            have hprop := filterProp_of_mem hin
+            exact ⟨e, e', mem_of_mem_filter hin, (by rw [hrest]; exact Mem.head e' E'), ofDecideEqTrue hprop⟩ 
+        case inl => 
+          have ⟨a, hfempty⟩ := houter 
+
+        --byCases houter : ∃ a : α, ∀ e : (α × α), e ∈ C → e.2 ≠ a
+        --case inr =>  
+        --have hall : ∀ a : α,  := fun 
+        --have hall : ∀ a : α, ∃ e : (α × α), e ∈ C ∧ e.2 = a := by 
+        --  intro a 
+          --¬(∃ x, p x) → (∀ x, ¬ p x) := 
+          --fun h x hp => h ⟨x, hp⟩
+        --case inl => _
+        /-
+        byCases hall : ∀ a : α, ∃ e : (α × α), e ∈ C ∧ e.2 = a 
+        case inl => 
+          have ⟨e, hmem, hadj⟩ := hall e'.1 
+          exact ⟨e, e', hmem, (by rw [hrest]; exact Mem.head e' E'), hadj⟩ 
+        case inr => 
+          have hall : ∃ a : α, ∀ e : (α × α), ¬(e ∈ C ∧ e.2 = a) := by 
+        -/
+            
+
+    /-
+    match (E -l C) with 
+    | nil => 
+      rw [nil_append] at heqv  
+      let heq := permEqvLength heqv 
+      rw [heq] at hlt
+      cases Nat.ltIrrefl C.length hlt   
+    | cons e' E' => 
+      let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
+      let hnempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
+    -/
+    /-
     byCases hempty : E -l C = [] 
     case inl =>  
       let heqv := permEqvToEraseAppend hsub 
@@ -327,8 +389,21 @@ theorem eulerian_degrees
       cases Nat.ltIrrefl C.length hlt   
     case inr => 
       let hnezero : ¬0 = (E -l C).length := fun heq => contraposition length_zero_iff_nil.mp hempty heq.symm
-      let hempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
+      let hnempty : isNonEmpty $ E -l C := Nat.ltOfLeOfNe (Nat.zeroLe (length $ E -l C)) hnezero
+      have hAdj : ∃ e e' : (α × α), e ∈ C ∧ e' ∈ (E -l C) ∧ e.2 = e'.1 := 
+        match E -l C with 
+        | [] => simp at hempty 
+        | cons e' E' => 
+         by 
+          byCases hall : ∀ a : α, ∃e : (α × α), e ∈ C ∧ e.2 = a 
+          case inl => 
+            let ⟨e, hmem, hadj⟩ := hall e'
+            
+            
+          --let ⟨e, hmem, hadj⟩ := hall (first (E -l C) hnempty)
+    -/
     
+
 
 
 /- 
