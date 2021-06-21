@@ -446,6 +446,14 @@ theorem eulerian_degrees
           case inl => 
           -- Case: There is a vertex in the outer of C.
             have ⟨a, hfempty⟩ := houter
+            -- There is no edge in C with a as head.
+            have hnexist : ¬ ∃ e : (α × α), e ∈ C ∧ e.2 = a := by 
+              intro ⟨e, hin, hhead⟩ 
+              let p : (α × α) → Bool := fun e => e.2 = a 
+              have hprop' : p e = true := decideEqTrue hhead 
+              have hfin : e ∈ filter p C := by exact mem_filter_of_prop hin hprop'
+              rw [hfempty] at hfin
+              simp [mem_nonzeroCount, count_empty] at hfin
             have hreachable := sc c'.2 a
             simp only [reachable] at hreachable 
             match decEq c'.2 a with 
