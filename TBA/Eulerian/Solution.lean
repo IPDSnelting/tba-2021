@@ -30,6 +30,61 @@ def path (E : List (α × α)) : Prop := match E with
     | isTrue _ =>  path (cons (c,d) E) 
     | isFalse _ => False
 
+-- returns the first vertex of the first edge in a list of edges
+def first (E : List (α × α)) (h : isNonEmpty E) : α := by
+  cases E with 
+    | nil => simp [isNonEmpty] at h
+    | cons e E => exact e.1
+
+def firstEdge (E : List (α × α)) (h : isNonEmpty E) : (α × α) := by
+  cases E with 
+    | nil => simp [isNonEmpty] at h
+    | cons e E => exact e
+
+theorem prefixPreservesFirst (E E' : List (α × α)) (h : isNonEmpty E) (h' : isNonEmpty E') : (∃ tail : List (α × α), E = E' ++ tail) → first E h = first E' h' := by 
+  intro ⟨tail, heq⟩ 
+  induction tail with 
+  | nil => 
+    simp [nil_append] at heq -- use trace to remove simp later.
+  | cons _ _ _ => admit  
+
+
+theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
+  cases E with 
+    | nil => cases h
+    | cons _ E' => 
+      simp only [List.length_cons, Nat.succSubOne]
+      show length E' + 1 ≤ Nat.succ (length E') 
+      rw [Nat.add_succ, Nat.add_zero]
+      apply Nat.leRefl
+
+theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
+  have h'': ¬(length (e :: E') = 0) := by
+        simp [length_cons_ne_zero]
+      simp only [isNonEmpty]
+      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
+        apply Nat.eqZeroOrPos (length (e :: E'))
+  simp_all [isNonEmpty]
+
+theorem firstEdgeCons (E : List (α × α)) (e : (α × α)) : firstEdge (e::E) (eENonEmpty e E) = e := by
+  simp [firstEdge]   
+
+theorem firstEdgeEq (as bs : List (α × α)) (a b : (α × α)) : 
+(a::as) = (b::bs) → firstEdge (a::as) (eENonEmpty a as) = firstEdge (b::bs) (eENonEmpty b bs) ∧ as = bs := by 
+  simp [firstEdgeCons]
+  exact (fun x => x)
+
+theorem appFirst (as bs : List (α × α)) (e : (α × α)) : 
+  firstEdge (e::as) (eENonEmpty e as) = firstEdge (e::as++bs) (by 
+    have h := eENonEmpty e (as++bs)
+    rw [cons_append] 
+    exact h
+    ) := by 
+  have h' := firstEdgeCons as e 
+  have h'' := firstEdgeCons (as++bs) e 
+  have h''' : e::(as ++ bs) = e::as++bs := by simp 
+  simp [h', h'', h''', firstEdgeCons (as++bs) e]
+
 -- Theorem that sublists of E are also paths.
 theorem subPath (E : List (α × α)) (h : path E) : ∀ as bs : List (α × α), E = as ++ bs → path as ∧ path bs := by 
   induction E with 
@@ -50,41 +105,16 @@ theorem subPath (E : List (α × α)) (h : path E) : ∀ as bs : List (α × α)
       rw [nil_append] at heq 
       exact ⟨by simp [path], (by rw [← heq]; exact h)⟩ 
     | cons a as => 
-      have heqedge : e' = a := by simp [heq]      
-      have hpath : path E' := _
-
--- returns the first vertex of the first edge in a list of edges
-def first (E : List (α × α)) (h : isNonEmpty E) : α := by
-  cases E with 
-    | nil => simp [isNonEmpty] at h
-    | cons e E => exact e.1
-
-theorem prefixPreservesFirst (E E' : List (α × α)) (h : isNonEmpty E) (h' : isNonEmpty E') : (∃ tail : List (α × α), E = E' ++ tail) → first E h = first E' h' := by 
-  intro ⟨tail, heq⟩ 
-  induction tail with 
-  | nil => 
-    simp [nil_append] at heq -- use trace to remove simp later.
-  | 
-
-
-theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
-  cases E with 
-    | nil => cases h
-    | cons _ E' => 
-      simp only [List.length_cons, Nat.succSubOne]
-      show length E' + 1 ≤ Nat.succ (length E') 
-      rw [Nat.add_succ, Nat.add_zero]
-      apply Nat.leRefl
-
-theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
-  have h'': ¬(length (e :: E') = 0) := by
-        simp [length_cons_ne_zero]
-      simp only [isNonEmpty]
-      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
-        apply Nat.eqZeroOrPos (length (e :: E'))
-  simp_all [isNonEmpty]
+      have heqedge : e' = a ∧ E' = as ++ bs := by 
+        have h' := firstEdgeEq E' (as++bs) e' a
+        rw [cons_append] at heq   
+        have h' := h' heq 
+        simp_all [firstEdgeCons, firstEdgeEq]
+      have hpath : path E' := by _
+         
 
 -- returns the second vertex of the last edge in a list of edges
+-- maybe better to return getLast
 def last (E : List (α × α)) : (h : isNonEmpty E) → α := by 
   intro h
   let h' := lastIndexValid E h 
