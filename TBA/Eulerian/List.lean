@@ -4,7 +4,7 @@ open BEq Nat List Decidable
 
 namespace Eq
 
-protected theorem symm_iff {a b : α} : b = a ↔ a = b := ⟨Eq.symm, Eq.symm⟩ 
+protected theorem symm_iff {a b : α} : b = a ↔ a = b := ⟨Eq.symm, Eq.symm⟩
 
 end Eq
 
