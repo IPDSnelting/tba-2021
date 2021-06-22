@@ -31,12 +31,12 @@ def first (h : path E a b) : α := a
 
 def last (h : path E a b) : α := b
 
-def circuit : List (α × α) → α → α → Prop := by 
-  intro E a b 
-  exact (path E a b) ∧ (a = b)
+def circuit : List (α × α) → α → Prop := by 
+  intro E a 
+  exact path E a a
 
 def reachable (E : List (α × α)) (a b : α) : Prop := 
-  ∃ p : List (α × α), ∃ h : isNonEmpty p, p ⊆ E ∧ path p a b 
+  ∃ p : List (α × α), p ⊆ E ∧ path p a b 
 
 def isStronglyConnected (E : List (α × α)) : Prop := ∀ a b : α, reachable E a b  
 
@@ -52,7 +52,7 @@ def tails (E : List (α × α)) : List α := map (fun e => e.1) E
 
 def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
 
-def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), ∃ a : α, E' ≃ E ∧ circuit E' a a 
+def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), ∃ a : α, E' ≃ E ∧ circuit E' a
 
 theorem pathNil {p : List (α × α)} {a b : α} (hp : path p a b) : p = [] → a = b := by 
   intro heq 
@@ -76,7 +76,7 @@ theorem pathAppend {p q : List (α × α)} {a b c : α}
       exact path.trans e (p'++q) h
 
 -- Inverse to pathAppend.
-theorem pathBreak {p q : List (α × α)} {a b c : α}  
+theorem pathBreak (p q : List (α × α)) {a c : α}  
   (hpq : path (p++q) a c) : ∃ b : α, path p a b ∧ path q b c := by 
   induction p generalizing a c with 
   | nil => 
@@ -102,5 +102,37 @@ theorem pathLastEdge {p : List (α × α)} {e : (α × α)} {a b : α}
     | trans _ _ hp' => 
       have ⟨x, hin, heq⟩ := ih hp'
       exact ⟨x, Mem.tail x e (e'::p') hin, heq⟩ 
+
+theorem permEqvAppend {as bs cs ds : List α} (h : as ≃ bs) (h' : cs ≃ ds) : as++cs ≃ bs++ds := by 
+  simp only [isPermEqvTo] 
+  intro a 
+  simp only [count_append]
+  have hcount := h a 
+  have hcount' := h' a 
+  rw [hcount, hcount']
+
+/- If a circuit contains an adjacent edge to another circuit, we can concatenate them to a bigger circuit. -/
+theorem concatCircuit {C C' : List (α × α)} {a b : α} (hcirc : circuit C a) (hcirc' : circuit C' b) : 
+  (∃ e : (α × α), e ∈ C ∧ e.2 = b) → ∃ Ccon : List (α × α), circuit Ccon a ∧ Ccon ≃ C++C' := by 
+  intro ⟨e, hin, heq⟩ 
+  have ⟨s, t, hsplit⟩ := mem_split hin
+  have hCpath : path C a a := hcirc
+  rw [hsplit] at hCpath 
+  have ⟨c, hspath, hetpath⟩ := pathBreak s (e::t) hCpath 
+  cases hetpath with 
+  | trans _ _ htpath => 
+    rw [heq] at htpath 
+    have hC'tpath := pathAppend hcirc' htpath 
+    rw [← heq] at hC'tpath 
+    have heC'tpath := path.trans e (C'++t) hC'tpath 
+    have hconpath := pathAppend hspath heC'tpath 
+    have heqv : (s ++ e :: (C' ++ t)) ≃ C++C' := by
+      simp only [hsplit]
+      have hrot := permEqvRotate C' t
+      rw [append_assoc, cons_append]
+      apply permEqvAppend permEqvRefl
+      apply permEqvCons
+      assumption
+    exact ⟨s ++ e :: (C' ++ t), hconpath, heqv⟩ 
 
 end Eulerian
