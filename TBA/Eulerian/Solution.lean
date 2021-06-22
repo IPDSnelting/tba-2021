@@ -5,6 +5,7 @@ We provide you with a formalization of some facts about lists being equal up to 
 lists being sublists of their permutation
 -/
 import TBA.Eulerian.List
+import TBA.Util.Find 
 
 -- If a simp has to be turned to a simp only. :D
 -- set_option trace.Meta.Tactic.simp true 
