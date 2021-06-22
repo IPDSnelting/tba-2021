@@ -266,7 +266,7 @@ theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (ed : hasEqu
     simp only [isNonEmpty] at hne 
     simp_all 
   | cons e E' => 
-    let ⟨C, hsub, hcirc⟩ := existenceCircuitWithStartEdge (Mem.head e E') ed 
+    have ⟨C, hsub, hcirc⟩ := existenceCircuitWithStartEdge (Mem.head e E') ed 
     exact ⟨e::C, e.1, hsub, hcirc, eENonEmpty e C⟩  
 
 -- the actual theorem
