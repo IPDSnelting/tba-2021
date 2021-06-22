@@ -164,18 +164,6 @@ def tails (E : List (α × α)) : List α := map (fun e => e.1) E
 def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E a = outDegree E a
 
 def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), E' ≃ E ∧ circuit E'
-
-def preList (E E' : List (α × α)) : Prop := ∃ E'' : List (α × α), E = E' ++ E'' 
-
-theorem prePath (E E' : List (α × α)) : preList E E' → path E → path E' := by 
-  induction E with 
-  intro h h' 
-  | nil =>
-    simp only [preList] at h
-    
-  | cons e E'' ih =>
-    simp
-    
     
 -- inserts edge in list at index n (if n is grater than list.length, it inserts it at the end)
 def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) := 
@@ -188,15 +176,6 @@ def insert (E : List (α × α)) (e : α × α) (n : Nat) : List (α × α) :=
 
 #eval insert [(1,2),(2,3)] (5,4) 1
 
-theorem pathLastEdge (p : List (α × α)) (hpath : path p) (hne : isNonEmpty p) : ∃ e : (α × α), e ∈ p ∧ e.2 = last p hne := by 
-  induction p with 
-  | nil => 
-    simp only [isNonEmpty] at hne 
-    rw [length_zero_iff_nil.mpr] at hne
-    cases Nat.ltIrrefl 0 hne 
-  | cons x p ih => 
-    _
-
 -- Returns longest prefix of elements that satisfy p.
 def takeWhile (p : α → Bool) : List α → List α 
 | [] => []
@@ -206,11 +185,6 @@ def takeWhile (p : α → Bool) : List α → List α
 
 -- sanity check
 #eval takeWhile (fun a => a < 3) [1,2,3,5,8]  
-
--- Given path from a to b, returns path without edge (b,a). 
-def pathNonRedundant (P : List (α × α)) (hp : path P) (hpne : isNonEmpty P) (hne : first P hpne ≠ last P hpne) : List (α × α) :=   
-  let e := (last P hpne, first P hpne)
-  takeWhile (fun e' => e ≠ e') P 
 
 -- somewhat sanity check
 #eval takeWhile (fun e' => (1,2) ≠ e') [(2,3), (3,4), (4,1), (1,2), (2,1)]
