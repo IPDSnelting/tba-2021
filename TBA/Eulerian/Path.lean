@@ -7,12 +7,12 @@ lists being sublists of their permutation
 import TBA.Eulerian.List
 import TBA.Util.Find 
 
--- If a simp has to be turned to a simp only. :D
--- set_option trace.Meta.Tactic.simp true 
-
 open List
 
 namespace Eulerian
+
+-- If a simp has to be turned to a simp only. :D
+--set_option trace.Meta.Tactic.simp true 
 
 -- We model graphs as lists of pairs on a type with decidable equality.
 variable {α : Type} (E : List (α × α)) [DecidableEq α]
@@ -77,6 +77,11 @@ theorem pathNil {p : List (α × α)} {a b : α} (hp : path p a b) : p = [] → 
   rw [heq] at hp
   match hp with 
   | path.refl => rfl 
+
+theorem pathEdge {e : α × α} {a b : α} (hp : path [e] a b) : e.1 = a ∧ e.2 = b := by 
+  match hp with 
+  | path.trans _ _ hpath => 
+    simp [pathNil hpath]
 
 -- Generalisation of transitivity: Paths can be concatenated into a bigger path.
 theorem pathAppend {p q : List (α × α)} {a b c : α} 
@@ -198,17 +203,227 @@ theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 <
       apply Nat.leRefl
 
 theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
-  have h'': ¬(length (e :: E') = 0) := by
-        simp [length_cons_ne_zero]
-      simp only [isNonEmpty]
-      have h''' : length (e :: E') = 0 ∨ length (e :: E') > 0 := by
-        apply Nat.eqZeroOrPos (length (e :: E'))
-  simp_all [isNonEmpty]
+  simp [isNonEmpty, Nat.succPos]
 
 -- Remove, if only needed in notEulerianNoEqCircuit
 theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ hpq hp  
 
-theorem circuitEqualInOut (E : List (α × α)) {a : α} (h : circuit E a) : hasEqualInOutDegrees E := by admit 
+theorem notEqualComm {a b : α} : (¬a = b) → (¬b = a) := by 
+  intro hne h 
+  exact hne $ Eq.symm h
+
+theorem circuitEqualInOut (E : List (α × α)) {a : α} (h : circuit E a) : hasEqualInOutDegrees E := by 
+  suffices ∀ n : Nat, ∀ E : List (α × α), ∀ a : α, E.length = n → circuit E a → hasEqualInOutDegrees E by 
+    exact this E.length E a rfl h  
+  intro n 
+  induction n with 
+  | zero => 
+    intro E a heq hcirc 
+    have hnil := length_zero_iff_nil.mp heq 
+    rw [hnil]
+    simp only [hasEqualInOutDegrees, inDegree, outDegree]
+    intro x 
+    simp [filter_nil]
+  | succ n ih => 
+    intro E a heq hcirc 
+    cases E with
+    | nil => 
+      simp [length, lengthAux] at heq 
+    | cons e E => 
+      simp only [circuit] at hcirc 
+      cases E with 
+      | nil => 
+        have h := pathEdge hcirc
+        simp only [hasEqualInOutDegrees, inDegree, outDegree]
+        intro x 
+        match decEq x a with 
+        | isTrue h' => 
+          rw [h']
+          simp only [filter_cons e []]
+          rw [h.left]
+          simp only [eqSelf, decideEqTrue]
+          rw [h.right]
+          simp [eqSelf, decideEqTrue, Lean.Simp.ite_True, length_cons, length_nil] -- trace 
+        | isFalse h' => 
+          simp only [filter_cons e []]
+          rw [← h.left] at h'
+          have h' := notEqualComm h' 
+          simp only [eqSelf, decideEqFalse, h'] 
+          rw [h.left, ← h.right] at h' 
+          simp [eqSelf, decideEqFalse, h'] 
+      | cons e' E' => 
+        have heq' : e::e'::E' = [e, e'] ++ E' := by 
+          simp [append_assoc] 
+        rw [heq'] 
+        rw [heq'] at hcirc 
+        have ⟨b, hpath, hpath'⟩ := pathBreak [e, e'] E' hcirc 
+        have hnpath := path.trans (a,b) E' hpath' 
+        simp only [Prod.fst] at hnpath 
+        have hlen : ((a, b) :: E').length = n := by 
+          have h' := heq 
+          simp only [length_cons, Nat.succ_Eq_add_one]
+          simp only [length_cons, Nat.succ_Eq_add_one] at h'
+          exact Nat.add_right_cancel h'
+        have ed := ih ((a, b) :: E') a hlen (by simp [circuit, hnpath])  
+        simp only [hasEqualInOutDegrees, inDegree, outDegree] 
+        have heqe : e.1 = a := pathCons hpath 
+        have ⟨heqee', heqe'⟩ : e'.1 = e.2 ∧ e'.2 = b := by 
+          cases hpath with 
+          | trans _ _ h' => 
+            exact pathEdge h'
+        intro x 
+        simp only [length_append, filter_append] 
+        simp only [filter_cons e [e']]
+        match decEq x a with 
+        | isTrue hxa => 
+          match decEq x e.2 with 
+          | isTrue hxe => 
+            match decEq x b with 
+            | isTrue hxb => 
+              rw [hxe]
+              simp only [eqSelf, decideEqTrue] 
+              simp only [filter_cons e' []]
+              rw [← hxe, heqee', hxb, heqe']
+              simp only [eqSelf, decideEqTrue] 
+              rw [heqe, ← hxa, hxb]
+              simp [eqSelf, decideEqTrue] -- trace
+              rw [← hxe, hxb]
+              simp [eqSelf, decideEqTrue] -- trace 
+              rw [← hxa, hxb] at ed 
+              have h'' := ed b 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (b,b) E'] at h''
+              simp [eqSelf, decideEqTrue] at h''
+              simp [h'']
+            | isFalse hxb => 
+              rw [← hxe]
+              simp [eqSelf, decideEqTrue] 
+              rw [heqe, hxa]
+              simp [eqSelf, decideEqTrue] 
+              simp only [filter_cons e' []]
+              have ⟨h''', h''''⟩ : ¬ e'.2 = a ∧ e'.1 = a := by 
+                constructor 
+                intro h 
+                rw [heqe'] at h
+                have h := Eq.symm h 
+                rw [← hxa] at h
+                exact hxb h 
+                rw [heqee', ← hxe, ← hxa]
+              simp [eqSelf, decideEqTrue, decideEqFalse, h''', h'''']
+              have h'' := ed a 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              rw [← hxa] at h''
+              have hxb : ¬ b = x := notEqualComm hxb 
+              simp [decideEqFalse, hxb, eqSelf, decideEqTrue] at h''
+              simp only [Nat.succ_Eq_add_one] at h''
+              rw [Nat.add_comm, hxa] at h'' 
+              simp only [Nat.succ_Eq_add_one, Nat.zero_add]
+              simp [h'', Nat.add_assoc]
+          | isFalse hxe => 
+            match decEq x b with 
+            | isTrue hxb => 
+              have hxe : ¬ e.2 = x := notEqualComm hxe
+              simp [decideEqFalse, hxe]
+              rw [heqe, hxa]
+              simp [eqSelf, decideEqTrue]
+              simp only [filter_cons e' []] 
+              rw [heqee', ← hxa]
+              simp [decideEqFalse, hxe]
+              rw [hxb]
+              simp [eqSelf, decideEqTrue, heqe']
+              have h'' := ed b 
+              rw [← hxa, hxb] at h'' 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (b,b) E'] at h''
+              simp [eqSelf, decideEqTrue] at h''
+              simp [h'']
+            | isFalse hxb => 
+              have hxe : ¬ e.2 = x := notEqualComm hxe
+              simp [decideEqFalse, hxe]
+              rw [heqe, hxa]
+              simp [eqSelf, decideEqTrue] 
+              simp only [filter_cons e' []]
+              have ⟨h''', h''''⟩ : ¬ e'.2 = a ∧ ¬ e'.1 = a := by 
+                constructor 
+                intro h 
+                rw [heqe'] at h
+                have h := Eq.symm h 
+                rw [← hxa] at h
+                exact hxb h 
+                intro h 
+                rw [heqee', ← hxa] at h 
+                exact hxe h
+              simp [eqSelf, decideEqTrue, decideEqFalse, h''', h'''']
+              have h'' := ed a 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              rw [← hxa] at h''
+              have hxb := notEqualComm hxb 
+              simp [decideEqFalse, hxb, eqSelf, decideEqTrue] at h''
+              simp only [Nat.succ_Eq_add_one] at h''
+              rw [Nat.add_comm, hxa] at h'' 
+              simp only [Nat.succ_Eq_add_one, Nat.zero_add]
+              simp [h'', Nat.add_assoc]
+        | isFalse hxa => 
+          match decEq x e.2 with 
+          | isTrue hxe => 
+            match decEq x b with 
+            | isTrue hxb => 
+              rw [hxe]
+              simp [eqSelf, decideEqTrue] 
+              rw [heqe, ← hxe]
+              simp [eqSelf, decideEqFalse, notEqualComm hxa]
+              simp only [filter_cons e' []]
+              rw [heqee', heqe', ← hxb, hxe]
+              simp [eqSelf, decideEqTrue] 
+              have h'' := ed e.2 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              rw [← hxb, hxe, ← hxe] at h''
+              simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hxa] at h''
+              simp only [Nat.succ_Eq_add_one] at h''
+              rw [Nat.add_comm, hxe] at h'' 
+              simp only [Nat.succ_Eq_add_one, Nat.zero_add]
+              simp [h'', Nat.add_assoc]
+            | isFalse hxb =>
+              simp only [filter_cons e [e']]
+              rw [heqe, ← hxe]
+              simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hxa]
+              simp only [filter_cons e' []]
+              rw [heqe', heqee', ← hxe]
+              simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hxb]
+              have h'' := ed x 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              simp [decideEqFalse, notEqualComm hxb, notEqualComm hxa] at h''
+              simp [h'']
+          | isFalse hxe => 
+            match decEq x b with 
+            | isTrue hxb => 
+              rw [heqe]
+              simp [decideEqFalse, notEqualComm hxe, notEqualComm hxa]
+              simp only [filter_cons e' []]
+              rw [hxb, heqe', heqee', ← hxb]
+              simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hxe]
+              have h'' := ed x 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              rw [← hxb] at h'' 
+              simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hxa] at h''
+              rw [Nat.succ_Eq_add_one] at h''
+              simp [Nat.succ_Eq_add_one, Nat.add_comm, h'']
+            | isFalse hxb => 
+              rw [heqe]
+              simp [decideEqFalse, notEqualComm hxe, notEqualComm hxa]
+              simp only [filter_cons e' []]
+              rw [heqee', heqe']
+              simp [decideEqFalse, notEqualComm hxb, notEqualComm hxe]
+              have h'' := ed x 
+              simp only [inDegree, outDegree, cons_append, filter_append] at h''
+              simp only [filter_cons (a,b) E'] at h''
+              simp [decideEqFalse, notEqualComm hxa, notEqualComm hxb] at h'' 
+              assumption 
 
 -- Removing a circuit from a graph with equal in- and out degrees preserves that property.
 /- Could be generalized for any subgraph with equal in- and out degrees. -/
