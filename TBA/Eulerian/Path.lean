@@ -165,9 +165,7 @@ theorem permEqvAppend {as bs cs ds : List α} (h : as ≃ bs) (h' : cs ≃ ds) :
   simp only [isPermEqvTo] 
   intro a 
   simp only [count_append]
-  have hcount := h a 
-  have hcount' := h' a 
-  rw [hcount, hcount']
+  rw [h a, h' a]
 
 /- If a circuit contains an adjacent edge to another circuit, we can concatenate them to a bigger circuit. -/
 theorem concatCircuit {C C' : List (α × α)} {a b : α} (hcirc : circuit C a) (hcirc' : circuit C' b) : 
@@ -425,6 +423,73 @@ theorem circuitEqualInOut (E : List (α × α)) {a : α} (h : circuit E a) : has
               simp [decideEqFalse, notEqualComm hxa, notEqualComm hxb] at h'' 
               assumption 
 
+-- Corollary: If a path is not a circuit, all vertices except the start and end have the equal degree property.
+theorem pathEqualInOut (E : List (α × α)) {a b : α} (hpath : path E a b) : 
+  a ≠ b → inDegree E a + 1 = outDegree E a ∧ inDegree E b = outDegree E b + 1 ∧ 
+  ∀ x : α, x ≠ a ∧ x ≠ b → inDegree E x = outDegree E x := by 
+  induction E generalizing a b with 
+  | nil => 
+    intro h 
+    cases h $ pathNil hpath rfl 
+  | cons e E ih => 
+    intro hab 
+    cases hpath with 
+    | trans _ _ hpath' => 
+      match decEq e.snd b with 
+      | isTrue heq =>   
+        -- Case 1: E is a circuit.
+        rw [heq] at hpath'
+        have ed := circuitEqualInOut E hpath'
+        constructor
+        -- Case a 
+        simp only [inDegree, outDegree, filter_cons]
+        rw [heq] 
+        simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hab] -- trace
+        exact ed e.1 
+        constructor
+        -- Case b 
+        simp only [inDegree, outDegree, filter_cons]
+        simp [eqSelf, decideEqTrue, decideEqFalse, heq, hab] -- trace
+        exact ed b 
+        -- Otherwise 
+        intro x ⟨hnea, hneb⟩ 
+        simp only [inDegree, outDegree, filter_cons]
+        rw [heq]
+        simp [decideEqFalse, notEqualComm hneb, notEqualComm hnea] -- trace
+        exact ed x 
+      | isFalse hneq => 
+        -- Case 2: E is not a circuit.
+        have almosted := ih hpath' hneq 
+        constructor 
+        -- Case a 
+        match decEq e.1 e.2 with 
+        | isTrue hloop => 
+          simp only [inDegree, outDegree, filter_cons]
+          rw [hloop]
+          simp [eqSelf, decideEqTrue] -- trace
+          exact almosted.left
+        | isFalse hnloop => 
+          simp only [inDegree, outDegree, filter_cons]
+          simp [eqSelf, decideEqTrue, decideEqFalse, notEqualComm hnloop] -- trace
+          exact almosted.right.right e.1 ⟨hnloop, hab⟩  
+        constructor 
+        -- Case b 
+        simp only [inDegree, outDegree, filter_cons]
+        simp [decideEqFalse, hab, hneq]
+        exact almosted.right.left 
+        -- Otherwise 
+        intro x ⟨hnea, hneb⟩ 
+        match decEq e.2 x with 
+        | isTrue heqx => 
+          simp only [inDegree, outDegree, filter_cons]
+          simp [heqx, eqSelf, decideEqTrue, notEqualComm hnea, decideEqFalse] -- trace
+          rw [Nat.succ_Eq_add_one, ← heqx]
+          exact almosted.left 
+        | isFalse hneqx => 
+          simp only [inDegree, outDegree, filter_cons]
+          simp [decideEqFalse, hneqx, notEqualComm hnea] -- trace
+          exact almosted.right.right x ⟨notEqualComm hneqx, hneb⟩ 
+        
 -- Removing a circuit from a graph with equal in- and out degrees preserves that property.
 /- Could be generalized for any subgraph with equal in- and out degrees. -/
 theorem removeCircuit (C E : List (α × α)) {a : α} (hsub : C ⊆ E) (ed : hasEqualInOutDegrees E) (hcirc : circuit C a) 
@@ -450,7 +515,7 @@ theorem removeCircuit (C E : List (α × α)) {a : α} (hsub : C ⊆ E) (ed : ha
   exact Nat.add_right_cancel heqE
 
 -- Theorem that a subgraph always has at most as many edges as E.
-theorem permSubLtLength {C E : List (α × α)} (hsub : C ⊆ E) : length C ≤ length E := by 
+theorem permSubLeLength {C E : List (α × α)} (hsub : C ⊆ E) : length C ≤ length E := by 
   have h := permEqvToEraseAppend hsub 
   have h' := permEqvLength h 
   rw [length_append] at h'
@@ -466,12 +531,93 @@ theorem notEulerianNoEqCircuit (hne : ¬isEulerian E) {a : α}
     have heulerian : isEulerian E := ⟨C, a, h, hall.right⟩ 
     cases hne heulerian 
   case inr => 
-    have h'' := permSubLtLength hall.left 
+    have h'' := permSubLeLength hall.left 
     exact Nat.ltOfLeAndNe h'' $ contraposition (permEqvOfPermSub hall.left) h
+
+/-
+  The next two lemmas can probably be condensed by defining explicitly the 
+  p : α → Bool for inDegree and outDegree and then generalizing p.
+  Then only one lemma would be needed to express both
+-/
+theorem inDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
+  ∀ x : α, inDegree E x = inDegree (E -l C) x + inDegree C x := by 
+  intro x
+  have heqv := permEqvFilter (fun e => e.2 = x) $ permEqvToEraseAppend hsub
+  rw [filter_append] at heqv 
+  have hlen := permEqvLength heqv
+  rw [length_append] at hlen 
+  simp only [inDegree]
+  assumption
+
+theorem outDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
+  ∀ x : α, outDegree E x = outDegree (E -l C) x + outDegree C x := by 
+  intro x
+  have heqv := permEqvFilter (fun e => e.1 = x) $ permEqvToEraseAppend hsub
+  rw [filter_append] at heqv 
+  have hlen := permEqvLength heqv
+  rw [length_append] at hlen 
+  simp only [outDegree]
+  assumption
 
 -- If a graph has equal in- and out degrees and contains an edge e, then there is a circuit starting with e.
 theorem existenceCircuitWithStartEdge {E : List (α × α)} {e : (α × α)} (h : e ∈ E) (ed : hasEqualInOutDegrees E)  
-  : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) e.1 := by admit 
+  : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) e.1 := by 
+  have hpathextend : ∀ p : List (α × α), ∀ a b : α, p ⊆ E ∧ path p a b ∧ a ≠ b → 
+    ∃ e : (α × α), e ∈ (E -l p) ∧ path (p++[e]) a e.2 := by 
+    intro p a b ⟨hsub, hpath, hanotb⟩
+    have eqcount := ed b
+    have neqcount := (pathEqualInOut p hpath hanotb).right.left 
+    have hin := inDegreeAppend hsub b
+    have hout := outDegreeAppend hsub b
+    rw [eqcount, hout, neqcount, Nat.add_comm (outDegree p b) 1] at hin 
+    rw [← Nat.add_assoc] at hin
+    have hlt := Nat.add_right_cancel hin 
+    have hnempty : outDegree (E -l p) b > 0 := by simp [Nat.succPos, hlt]
+    have ⟨e, hmem, heq⟩ : ∃ e : (α × α), e ∈ (E -l p) ∧ e.1 = b := by 
+      simp only [outDegree] at hnempty 
+      cases hfilter : filter (fun (e : α × α) => decide (e.fst = b)) (E -l p) with 
+      | nil => 
+        rw [length_zero_iff_nil.mpr hfilter] at hnempty 
+        cases hnempty 
+      | cons e tail => 
+        have hmem := Mem.head e tail 
+        rw [← hfilter] at hmem 
+        have heq := filterProp_of_mem hmem 
+        have heq := ofDecideEqTrue heq
+        exact ⟨e, mem_of_mem_filter hmem, heq⟩ 
+    have hepath := path.trans e [] path.refl 
+    rw [heq] at hepath 
+    exact ⟨e, hmem, pathAppend hpath hepath⟩
+  byCases hclaim : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) e.1 
+  case inl => 
+    exact hclaim 
+  case inr => 
+    have hcontra : ∀ n : Nat, ∃ C : List (α × α), ∃ b : α, (e::C) ⊆ E ∧ path (e::C) e.1 b ∧ n < (e::C).length := by 
+      intro n
+      induction n with 
+      | zero => 
+        exact ⟨[], e.2, permSubSingleton h, path.trans e [] path.refl, eENonEmpty e []⟩ 
+      | succ n ih => 
+        have ⟨C', b, hsub, hpath, hlt⟩ := ih 
+        match decEq e.1 b with 
+        | isTrue hcirc => 
+          rw [← hcirc] at hpath 
+          cases hclaim ⟨C', hsub, hpath⟩ 
+        | isFalse hncirc =>
+          have ⟨e', hmem', hpath'⟩ := hpathextend (e::C') e.1 b ⟨hsub, hpath, hncirc⟩
+          have hsub' := permSubExtend hsub hmem' 
+          have hsub' := permSubEqvClosed (permEqvRotate [e'] (e::C')) hsub' 
+          rw [cons_append] at hsub'
+          have hlt' : n + 1 < (e :: C' ++ [e']).length := by 
+            simp only [length_append, length_cons, length_nil]
+            simp only [length_cons, Nat.succ_Eq_add_one] at hlt 
+            exact hlt 
+          simp only [cons_append e C' [e']] at hsub' 
+          simp only [cons_append e C' [e']] at hpath'
+          simp only [cons_append e C' [e']] at hlt'
+          exact ⟨C'++[e'], e'.2, hsub', hpath', hlt'⟩
+    have ⟨C, _, hsub, _, hlt⟩ := hcontra E.length 
+    cases Nat.ltIrrefl E.length $ Nat.ltOfLtOfLe hlt $ permSubLeLength hsub
 
 -- Corollary: If a graph has equal in- and out degrees and is non-empty, that it contains a non-empty circuit.
 theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (ed : hasEqualInOutDegrees E) 
@@ -502,7 +648,7 @@ theorem eulerian_degrees
       | succ n ih => 
         intro hlt 
         have ⟨C, a, hsub, hcirc, hltc⟩ := ih $ Nat.ltOfSuccLe $ Nat.leOfLt hlt 
-        have hle := permSubLtLength hsub 
+        have hle := permSubLeLength hsub 
         byCases heq : C.length = E.length 
         case inl => 
           rw [← heq] at hlt
@@ -512,7 +658,7 @@ theorem eulerian_degrees
           have hltc' := Nat.ltOfLeOfLt (Nat.succLeOfLt hltc) hltc' 
           exact ⟨C', a', hsub', hcirc', hltc'⟩ 
     have ⟨C, a, hsub, hcirc, hltc⟩ := h (E.length - 1) $ lastIndexValid E hne 
-    have heq := Nat.leAntisymm (permSubLtLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
+    have heq := Nat.leAntisymm (permSubLeLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
     exact ⟨C, a, permEqvOfPermSub hsub heq, hcirc⟩ 
   -- Let C be such a circuit.
   intro C a ⟨hsub, hcirc, hlt⟩
@@ -559,7 +705,7 @@ theorem eulerian_degrees
             intro ⟨e, hin, hhead⟩ 
             let p : (α × α) → Bool := fun e => e.2 = a 
             have hprop' : p e = true := decideEqTrue hhead 
-            have hfin : e ∈ filter p C := by exact mem_filter_of_prop hin hprop'
+            have hfin : e ∈ filter p C := mem_filter_of_prop hin hprop'
             rw [hfempty] at hfin
             simp [mem_nonzeroCount, count_empty] at hfin
           /-
