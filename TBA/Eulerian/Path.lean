@@ -286,27 +286,6 @@ theorem circuitEqualInOut (E : List (α × α)) {a : α} (h : circuit E a) : has
         rw [heqee', heqe', heqe]
         rw [hed, Nat.add_comm]
         rw [Nat.add_comm (if decide (e.snd = x) = true then 1 else 0) $ length (filter (fun (e : α × α) => decide (e.fst = x)) E'), Nat.add_assoc]
-        /-
-        match decEq x e.2 with 
-        | isTrue hxe => 
-          rw [hxe, ← heqee']
-          simp only [eqSelf, decideEqTrue, Lean.Simp.ite_True]
-          simp [length_cons, length_nil, Nat.succ_Eq_add_one]
-          rw [heqe, heqe', heqee', ← hxe]
-          simp only [lengthIteComm, length_nil, length_cons, Nat.succ_Eq_add_one, Nat.add_zero, Nat.zero_add]
-          simp only [lengthIteComm, length_nil, length_cons, Nat.succ_Eq_add_one, Nat.add_zero, Nat.zero_add] at hed
-          simp only [Nat.add_assoc]
-          rw [hed, Nat.add_comm]
-          have h'' : length (filter (fun (e : α × α) => decide (e.fst = x)) E') + 1 = 1 + length (filter (fun (e : α × α) => decide (e.fst = x)) E') := by simp [Nat.add_comm]
-          rw [Nat.add_comm 1 $ length (filter (fun (e : α × α) => decide (e.fst = x)) E'), Nat.add_assoc]
-        | isFalse hxe => 
-          simp only [heqee', notEqualComm hxe, decideEqFalse, Lean.Simp.ite_False, length_nil, Nat.zero_add, Nat.add_zero]
-          rw [heqe, heqe']
-          simp only [lengthIteComm, length_nil, length_cons, Nat.succ_Eq_add_one, Nat.add_zero, Nat.zero_add]
-          simp only [lengthIteComm, length_nil, length_cons, Nat.succ_Eq_add_one, Nat.add_zero, Nat.zero_add] at hed
-          simp only [Nat.add_assoc]
-          exact hed 
-        -/
 
 -- Corollary: If a path is not a circuit, all vertices except the start and end have the equal degree property.
 theorem pathEqualInOut (E : List (α × α)) {a b : α} (hpath : path E a b) : 
