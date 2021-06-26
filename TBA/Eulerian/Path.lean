@@ -12,7 +12,7 @@ open List
 namespace Eulerian
 
 -- If a simp has to be turned to a simp only. :D
---set_option trace.Meta.Tactic.simp true 
+-- set_option trace.Meta.Tactic.simp true 
 
 -- We model graphs as lists of pairs on a type with decidable equality.
 variable {α : Type} (E : List (α × α)) [DecidableEq α]
@@ -41,20 +41,11 @@ instance decidableMem [DecidableEq α] (x : α) : (xs : List α) → Decidable (
 
 -- Now it's your turn to fill out the following definitions and prove the characterization!
 
-theorem lengthIteComm {xs ys : List (α × α)} {p : Bool} : length (if p then xs else ys) = if p then length xs else length ys := by
-  match p with 
-  | true => 
-    simp [eqSelf, Lean.Simp.ite_True]  
-  | false => 
-    simp [eqSelf, Lean.Simp.ite_False]
+-- We begin by giving some basic definitions we can work with later
 
 inductive path : List (α × α) → α → α → Prop := 
   | refl : path [] a a 
   | trans (e : (α × α)) (C : List (α × α)) : path C e.2 x → path (e::C) e.1 x 
-
-def first (h : path E a b) : α := a 
-
-def last (h : path E a b) : α := b
 
 def circuit : List (α × α) → α → Prop := by 
   intro E a 
@@ -79,6 +70,10 @@ def hasEqualInOutDegrees (E : List (α × α)) : Prop := ∀ a : α, inDegree E 
 
 def isEulerian (E : List (α × α)) : Prop := ∃ E' : List (α × α), ∃ a : α, E' ≃ E ∧ circuit E' a
 
+/- 
+The next section consists of a few helpful lemmas we use later in the Proof. 
+We separate them from the main Proof, to make things more structured and easy to follow 
+-/
 theorem pathNil {a b : α} (hp : path [] a b) : a = b := by 
   match hp with 
   | path.refl => rfl 
@@ -172,30 +167,6 @@ theorem permEqvAppend {as bs cs ds : List α} (h : as ≃ bs) (h' : cs ≃ ds) :
   simp only [count_append]
   rw [h a, h' a]
 
-/- If a circuit contains an adjacent edge to another circuit, we can concatenate them to a bigger circuit. -/
-theorem concatCircuit {C C' : List (α × α)} {a b : α} (hcirc : circuit C a) (hcirc' : circuit C' b) : 
-  (∃ e : (α × α), e ∈ C ∧ e.2 = b) → ∃ Ccon : List (α × α), circuit Ccon a ∧ Ccon ≃ C++C' := by 
-  intro ⟨e, hin, heq⟩ 
-  have ⟨s, t, hsplit⟩ := mem_split hin
-  have hCpath : path C a a := hcirc
-  rw [hsplit] at hCpath 
-  have ⟨c, hspath, hetpath⟩ := pathBreak s (e::t) hCpath 
-  cases hetpath with 
-  | trans _ _ htpath => 
-    rw [heq] at htpath 
-    have hC'tpath := pathAppend hcirc' htpath 
-    rw [← heq] at hC'tpath 
-    have heC'tpath := path.trans e (C'++t) hC'tpath 
-    have hconpath := pathAppend hspath heC'tpath 
-    have heqv : (s ++ e :: (C' ++ t)) ≃ C++C' := by
-      simp only [hsplit]
-      have hrot := permEqvRotate C' t
-      rw [append_assoc, cons_append]
-      apply permEqvAppend permEqvRefl
-      apply permEqvCons
-      assumption
-    exact ⟨s ++ e :: (C' ++ t), hconpath, heqv⟩ 
-
 theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
   cases E with 
     | nil => cases h
@@ -208,13 +179,70 @@ theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 <
 theorem eENonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
   simp [isNonEmpty, Nat.succPos]
 
--- Remove, if only needed in notEulerianNoEqCircuit
 theorem contraposition : (p → q) → (¬q → ¬p) := fun hpq hnq hp => hnq $ hpq hp  
 
 theorem notEqualComm {a b : α} : (¬a = b) → (¬b = a) := by 
   intro hne h 
   exact hne $ Eq.symm h
 
+theorem lengthIteComm {xs ys : List (α × α)} {p : Bool} : length (if p then xs else ys) = if p then length xs else length ys := by
+  match p with 
+  | true => 
+    simp [eqSelf, Lean.Simp.ite_True]  
+  | false => 
+    simp [eqSelf, Lean.Simp.ite_False]
+
+-- Theorem that a subgraph always has at most as many edges as E.
+theorem permSubLeLength {C E : List (α × α)} (hsub : C ⊆ E) : length C ≤ length E := by 
+  have h := permEqvToEraseAppend hsub 
+  have h' := permEqvLength h 
+  rw [length_append] at h'
+  rw [h']
+  exact Nat.leAddLeft (length C) (length (E -l C))
+
+-- If a graph is not Eulerian, all of its circuit have a smaller length.
+theorem notEulerianNoEqCircuit (hne : ¬isEulerian E) {a : α}
+  : ∀ C : List (α × α), C ⊆ E ∧ circuit C a → C.length < E.length := by 
+  intro C hall
+  byCases h : C ≃ E 
+  case inl => 
+    have heulerian : isEulerian E := ⟨C, a, h, hall.right⟩ 
+    cases hne heulerian 
+  case inr => 
+    have h'' := permSubLeLength hall.left 
+    exact Nat.ltOfLeAndNe h'' $ contraposition (permEqvOfPermSub hall.left) h
+
+/-
+  The next two lemmas can probably be condensed by defining explicitly the 
+  p : α → Bool for inDegree and outDegree and then generalizing p.
+  Then only one lemma would be needed to express both
+-/
+theorem inDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
+  ∀ x : α, inDegree E x = inDegree (E -l C) x + inDegree C x := by 
+  intro x
+  have heqv := permEqvFilter (fun e => e.2 = x) $ permEqvToEraseAppend hsub
+  rw [filter_append] at heqv 
+  have hlen := permEqvLength heqv
+  rw [length_append] at hlen 
+  simp only [inDegree]
+  assumption
+
+theorem outDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
+  ∀ x : α, outDegree E x = outDegree (E -l C) x + outDegree C x := by 
+  intro x
+  have heqv := permEqvFilter (fun e => e.1 = x) $ permEqvToEraseAppend hsub
+  rw [filter_append] at heqv 
+  have hlen := permEqvLength heqv
+  rw [length_append] at hlen 
+  simp only [outDegree]
+  assumption
+
+/-
+We can now give a constructive proof of the actual theorem in a few steps, using the above lemmas.
+This part is closest to the actual way we proved the theorem on paper.
+-/
+
+-- We begin by proving, that all circuits have the property, that each vertex has equal in- and outdegree.
 theorem circuitEqualInOut (E : List (α × α)) {a : α} (h : circuit E a) : hasEqualInOutDegrees E := by 
   suffices ∀ n : Nat, ∀ E : List (α × α), ∀ a : α, E.length = n → circuit E a → hasEqualInOutDegrees E by 
     exact this E.length E a rfl h  
@@ -354,8 +382,8 @@ theorem pathEqualInOut (E : List (α × α)) {a b : α} (hpath : path E a b) :
           simp [decideEqFalse, hneqx, notEqualComm hnea] -- trace
           exact almosted.right.right x ⟨notEqualComm hneqx, hneb⟩ 
 
--- Removing a circuit from a graph with equal in- and out degrees preserves that property.
-/- Could be generalized for any subgraph with equal in- and out degrees. -/
+/- using the above theorems, we can now show, that removing a circuit from a graph also satisfying the equalInOut property,
+preserves this property. -/
 theorem removeCircuit (C E : List (α × α)) {a : α} (hsub : C ⊆ E) (ed : hasEqualInOutDegrees E) (hcirc : circuit C a) 
   : hasEqualInOutDegrees $ E -l C := by 
   simp only [hasEqualInOutDegrees, inDegree, outDegree]
@@ -378,52 +406,8 @@ theorem removeCircuit (C E : List (α × α)) {a : α} (hsub : C ⊆ E) (ed : ha
   rw [heqC] at heqE 
   exact Nat.add_right_cancel heqE
 
--- Theorem that a subgraph always has at most as many edges as E.
-theorem permSubLeLength {C E : List (α × α)} (hsub : C ⊆ E) : length C ≤ length E := by 
-  have h := permEqvToEraseAppend hsub 
-  have h' := permEqvLength h 
-  rw [length_append] at h'
-  rw [h']
-  exact Nat.leAddLeft (length C) (length (E -l C))
-
--- If a graph is not Eulerian, all of its circuit have a smaller length.
-theorem notEulerianNoEqCircuit (hne : ¬isEulerian E) {a : α}
-  : ∀ C : List (α × α), C ⊆ E ∧ circuit C a → C.length < E.length := by 
-  intro C hall
-  byCases h : C ≃ E 
-  case inl => 
-    have heulerian : isEulerian E := ⟨C, a, h, hall.right⟩ 
-    cases hne heulerian 
-  case inr => 
-    have h'' := permSubLeLength hall.left 
-    exact Nat.ltOfLeAndNe h'' $ contraposition (permEqvOfPermSub hall.left) h
-
-/-
-  The next two lemmas can probably be condensed by defining explicitly the 
-  p : α → Bool for inDegree and outDegree and then generalizing p.
-  Then only one lemma would be needed to express both
--/
-theorem inDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
-  ∀ x : α, inDegree E x = inDegree (E -l C) x + inDegree C x := by 
-  intro x
-  have heqv := permEqvFilter (fun e => e.2 = x) $ permEqvToEraseAppend hsub
-  rw [filter_append] at heqv 
-  have hlen := permEqvLength heqv
-  rw [length_append] at hlen 
-  simp only [inDegree]
-  assumption
-
-theorem outDegreeAppend {C E : List (α × α)} (hsub : C ⊆ E) : 
-  ∀ x : α, outDegree E x = outDegree (E -l C) x + outDegree C x := by 
-  intro x
-  have heqv := permEqvFilter (fun e => e.1 = x) $ permEqvToEraseAppend hsub
-  rw [filter_append] at heqv 
-  have hlen := permEqvLength heqv
-  rw [length_append] at hlen 
-  simp only [outDegree]
-  assumption
-
--- If a graph has equal in- and out degrees and contains an edge e, then there is a circuit starting with e.
+/- We now show, that we can always find a circuit with a given starting edge, 
+if the underlying graph has the equalInOut property -/
 theorem existenceCircuitWithStartEdge {E : List (α × α)} {e : (α × α)} (h : e ∈ E) (ed : hasEqualInOutDegrees E)  
   : ∃ C : List (α × α), (e::C) ⊆ E ∧ circuit (e::C) e.1 := by 
   have hpathextend : ∀ p : List (α × α), ∀ a b : α, p ⊆ E ∧ path p a b ∧ a ≠ b → 
@@ -494,7 +478,35 @@ theorem existenceCircuit (E : List (α × α)) (hne : isNonEmpty E) (ed : hasEqu
     have ⟨C, hsub, hcirc⟩ := existenceCircuitWithStartEdge (Mem.head e E') ed 
     exact ⟨e::C, e.1, hsub, hcirc, eENonEmpty e C⟩  
 
--- the actual theorem
+-- We now prove, that circuits adjacent to other circuits can be concatenated into a larger cirquit
+theorem concatCircuit {C C' : List (α × α)} {a b : α} (hcirc : circuit C a) (hcirc' : circuit C' b) : 
+  (∃ e : (α × α), e ∈ C ∧ e.2 = b) → ∃ Ccon : List (α × α), circuit Ccon a ∧ Ccon ≃ C++C' := by 
+  intro ⟨e, hin, heq⟩ 
+  have ⟨s, t, hsplit⟩ := mem_split hin
+  have hCpath : path C a a := hcirc
+  rw [hsplit] at hCpath 
+  have ⟨c, hspath, hetpath⟩ := pathBreak s (e::t) hCpath 
+  cases hetpath with 
+  | trans _ _ htpath => 
+    rw [heq] at htpath 
+    have hC'tpath := pathAppend hcirc' htpath 
+    rw [← heq] at hC'tpath 
+    have heC'tpath := path.trans e (C'++t) hC'tpath 
+    have hconpath := pathAppend hspath heC'tpath 
+    have heqv : (s ++ e :: (C' ++ t)) ≃ C++C' := by
+      simp only [hsplit]
+      have hrot := permEqvRotate C' t
+      rw [append_assoc, cons_append]
+      apply permEqvAppend permEqvRefl
+      apply permEqvCons
+      assumption
+    exact ⟨s ++ e :: (C' ++ t), hconpath, heqv⟩ 
+
+/- The above theorems already give you an Idea of how we want to prove the main theorem.
+We can find a nonempty circuit in a given graph (required he has all the Properties of the main theorem) 
+and can then add adjacent circuits to the one we found until we get an eulerian circuit. -/
+
+-- the actual main theorem
 theorem eulerian_degrees
   (hne : isNonEmpty E)
   (sc : isStronglyConnected E)
@@ -666,4 +678,5 @@ theorem eulerian_degrees
         rw [← (h' a)]
         exact h'' a 
       exact ⟨Ccon, a, hsubcon, hcirccon, hltcon⟩ 
+
 end Eulerian
