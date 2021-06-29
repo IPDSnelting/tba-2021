@@ -98,15 +98,6 @@ theorem notEqualComm {a b : α} : (¬a = b) → (¬b = a) := by
 theorem consNonEmpty (e : (α × α)) (E' : List (α × α)) : isNonEmpty (e :: E') := by
   simp [isNonEmpty, Nat.succPos]
 
-theorem lastIndexValid (E : List (α × α)) (h : isNonEmpty E) : length E - 1 < length E := by
-  cases E with 
-    | nil => cases h
-    | cons _ E' => 
-      simp only [List.length_cons, Nat.succSubOne]
-      show length E' + 1 ≤ Nat.succ (length E') 
-      rw [Nat.add_succ, Nat.add_zero]
-      apply Nat.leRefl
-
 theorem lengthIteComm {xs ys : List (α × α)} {p : Bool} : 
   length (if p then xs else ys) = if p then length xs else length ys := by
   match p with 
@@ -568,7 +559,7 @@ theorem eulerian_degrees
           have ⟨C', a', hsub', hcirc', hltc'⟩ := this C a ⟨hsub, hcirc, Nat.ltOfLeAndNe hle heq⟩ 
           have hltc' := Nat.ltOfLeOfLt (Nat.succLeOfLt hltc) hltc' 
           exact ⟨C', a', hsub', hcirc', hltc'⟩ 
-    have ⟨C, a, hsub, hcirc, hltc⟩ := h (E.length - 1) $ lastIndexValid E hne 
+    have ⟨C, a, hsub, hcirc, hltc⟩ := h (E.length - 1) $ Nat.subLt hne $ Nat.ltSuccSelf 0
     have heq := Nat.leAntisymm (permSubLeLength hsub) (Nat.leTrans Nat.leSuccSubOne (Nat.succLeOfLt hltc))
     exact ⟨C, a, permEqvOfPermSub hsub heq, hcirc⟩ 
   -- Let C be such a circuit.
